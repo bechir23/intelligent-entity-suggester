@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entity Extraction Testing Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-example {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .test-example:hover {
+            background: #e9ecef;
+        }
+        .test-example.active {
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .results {
+            margin-top: 20px;
+        }
+        .entity {
+            display: inline-block;
+            padding: 4px 8px;
+            margin: 2px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .entity-customers { background: #059669; color: white; }
+        .entity-products { background: #2563EB; color: white; }
+        .entity-sales { background: #7C3AED; color: white; }
+        .entity-stock { background: #0891B2; color: white; }
+        .entity-tasks { background: #EA580C; color: white; }
+        .entity-users { background: #DC2626; color: white; }
+        .entity-pronoun { background: #DC2626; color: white; }
+        .entity-numeric_filter { background: #DC2626; color: white; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .loading { color: #ffc107; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .json-output {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Entity Extraction Testing Interface</h1>
+        <p>Test all entity extraction examples to ensure correct functionality</p>
+        
+        <div>
+            <h3>📝 Test Query:</h3>
+            <input type="text" id="queryInput" placeholder="Enter your query here..." value="">
+            <div style="margin: 10px 0;">
+                <button onclick="testExtraction()">🔍 Test Entity Extraction</button>
+                <button onclick="testQuery()">🔎 Test Query Processing</button>
+                <button onclick="testBoth()">🔥 Test Both</button>
+                <button onclick="clearResults()">🗑️ Clear</button>
+            </div>
+        </div>
+
+        <div>
+            <h3>📋 Example Test Cases (Click to Use):</h3>
+            <div class="test-examples">
+                <div class="test-example" onclick="setQuery('ahmed')">
+                    <strong>Customer Search:</strong> "ahmed" → Should detect customer entity
+                </div>
+                <div class="test-example" onclick="setQuery('stock below 10')">
+                    <strong>Stock Filter:</strong> "stock below 10" → Should detect info + numeric_filter
+                </div>
+                <div class="test-example" onclick="setQuery('laptop sales above 1000')">
+                    <strong>Complex Query:</strong> "laptop sales above 1000" → Should detect products + sales + numeric filter
+                </div>
+                <div class="test-example" onclick="setQuery('my tasks')">
+                    <strong>User Context:</strong> "my tasks" → Should detect pronoun + info
+                </div>
+                <div class="test-example" onclick="setQuery('laptop')">
+                    <strong>Simple Product:</strong> "laptop" → Should detect product entity
+                </div>
+                <div class="test-example" onclick="setQuery('customers in Dubai')">
+                    <strong>Location Filter:</strong> "customers in Dubai" → Should detect entity + location
+                </div>
+                <div class="test-example" onclick="setQuery('pending tasks')">
+                    <strong>Status Filter:</strong> "pending tasks" → Should detect status + entity
+                </div>
+                <div class="test-example" onclick="setQuery('sales revenue')">
+                    <strong>Sales Data:</strong> "sales revenue" → Should detect sales entity
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📊 Test Results</h2>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        
+        function setQuery(query) {
+            document.getElementById('queryInput').value = query;
+            // Remove active class from all examples
+            document.querySelectorAll('.test-example').forEach(el => el.classList.remove('active'));
+            // Add active class to clicked example
+            event.target.classList.add('active');
+        }
+
+        async function testExtraction() {
+            const query = document.getElementById('queryInput').value;
+            if (!query) {
+                alert('Please enter a query');
+                return;
+            }
+
+            showLoading('Testing entity extraction...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/chat/extract`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: query })
+                });
+
+                const data = await response.json();
+                showExtractionResults(query, data);
+            } catch (error) {
+                showError('Entity extraction failed: ' + error.message);
+            }
+        }
+
+        async function testQuery() {
+            const query = document.getElementById('queryInput').value;
+            if (!query) {
+                alert('Please enter a query');
+                return;
+            }
+
+            showLoading('Testing query processing...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/chat/query`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: query, userName: 'test_user' })
+                });
+
+                const data = await response.json();
+                showQueryResults(query, data);
+            } catch (error) {
+                showError('Query processing failed: ' + error.message);
+            }
+        }
+
+        async function testBoth() {
+            await testExtraction();
+            await testQuery();
+        }
+
+        function showLoading(message) {
+            document.getElementById('results').innerHTML = `<div class="loading">⏳ ${message}</div>`;
+        }
+
+        function showError(message) {
+            document.getElementById('results').innerHTML = `<div class="error">❌ ${message}</div>`;
+        }
+
+        function showExtractionResults(query, data) {
+            let html = `
+                <h3>🔍 Entity Extraction Results for: "${query}"</h3>
+                <div class="success">✅ Success - Found ${data.entities ? data.entities.length : 0} entities</div>
+            `;
+
+            if (data.entities && data.entities.length > 0) {
+                html += `<h4>Detected Entities:</h4>`;
+                data.entities.forEach((entity, i) => {
+                    const className = `entity-${entity.table}`;
+                    html += `
+                        <div style="margin: 5px 0;">
+                            <span class="entity ${className}">
+                                ${entity.text} (${entity.type}:${entity.table}${entity.field ? ':' + entity.field : ''})
+                            </span>
+                        </div>
+                    `;
+                });
+            }
+
+            html += `<h4>Raw Response:</h4><div class="json-output">${JSON.stringify(data, null, 2)}</div>`;
+            
+            document.getElementById('results').innerHTML = html;
+        }
+
+        function showQueryResults(query, data) {
+            let html = `
+                <h3>🔎 Query Processing Results for: "${query}"</h3>
+                <div class="${data.success ? 'success' : 'error'}">
+                    ${data.success ? '✅' : '❌'} ${data.response || 'Query processed'}
+                </div>
+            `;
+
+            if (data.sqlQuery) {
+                html += `<h4>Generated SQL:</h4><div class="json-output">${data.sqlQuery}</div>`;
+            }
+
+            if (data.responseEntities && data.responseEntities.length > 0) {
+                html += `<h4>Response Entities:</h4>`;
+                data.responseEntities.forEach(entity => {
+                    const className = `entity-${entity.table}`;
+                    html += `
+                        <span class="entity ${className}">
+                            ${entity.text} (${entity.type}:${entity.table})
+                        </span>
+                    `;
+                });
+            }
+
+            if (data.data && data.data.length > 0) {
+                html += `<h4>Data Results (${data.recordCount} records):</h4>`;
+                
+                // Create table
+                const headers = Object.keys(data.data[0]);
+                html += `<table><thead><tr>`;
+                headers.forEach(header => {
+                    html += `<th>${header}</th>`;
+                });
+                html += `</tr></thead><tbody>`;
+                
+                data.data.slice(0, 5).forEach(row => {
+                    html += `<tr>`;
+                    headers.forEach(header => {
+                        html += `<td>${row[header] || ''}</td>`;
+                    });
+                    html += `</tr>`;
+                });
+                html += `</tbody></table>`;
+                
+                if (data.data.length > 5) {
+                    html += `<p><em>... and ${data.data.length - 5} more records</em></p>`;
+                }
+            }
+
+            html += `<h4>Raw Response:</h4><div class="json-output">${JSON.stringify(data, null, 2)}</div>`;
+            
+            document.getElementById('results').innerHTML = html;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('queryInput').value = '';
+            document.querySelectorAll('.test-example').forEach(el => el.classList.remove('active'));
+        }
+
+        // Test backend connectivity on page load
+        window.onload = async function() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                if (data.status === 'ok') {
+                    document.getElementById('results').innerHTML = `
+                        <div class="success">✅ Backend is connected and ready!</div>
+                        <div>🗄️ Database: ${data.database}</div>
+                        <div>🕒 Server time: ${data.timestamp}</div>
+                    `;
+                } else {
+                    document.getElementById('results').innerHTML = `
+                        <div class="error">❌ Backend health check failed</div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('results').innerHTML = `
+                    <div class="error">❌ Cannot connect to backend at ${API_BASE}</div>
+                    <div>Make sure the backend is running: <code>node working-backend.cjs</code></div>
+                `;
+            }
+        };
+    </script>
+</body>
+</html>

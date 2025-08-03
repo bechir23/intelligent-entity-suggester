@@ -1,0 +1,221 @@
+/* Test Examples Guide Styles */
+.test-examples-guide {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.guide-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.guide-header h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 8px 0;
+}
+
+.guide-header p {
+  font-size: 16px;
+  color: #64748b;
+  margin: 0;
+}
+
+.examples-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.example-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  padding: 20px;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.example-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.example-card.basic-suggestions {
+  border-left: 4px solid #f59e0b;
+}
+
+.example-card.intelligent-sql {
+  border-left: 4px solid #059669;
+}
+
+.example-card.advanced-search {
+  border-left: 4px solid #dc2626;
+}
+
+.example-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.mode-badge {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.basic-suggestions .mode-badge {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.intelligent-sql .mode-badge {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.advanced-search .mode-badge {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.query-code {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.example-body {
+  line-height: 1.5;
+}
+
+.description {
+  color: #475569;
+  margin: 0 0 12px 0;
+  font-size: 14px;
+}
+
+.expected-results {
+  background: #f8fafc;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 13px;
+  color: #334155;
+  border-left: 3px solid #cbd5e1;
+}
+
+.testing-instructions {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 32px;
+}
+
+.testing-instructions h3 {
+  color: #0c4a6e;
+  margin: 0 0 16px 0;
+  font-size: 18px;
+}
+
+.testing-instructions ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.testing-instructions li {
+  margin-bottom: 8px;
+  color: #0369a1;
+  line-height: 1.5;
+}
+
+.testing-instructions strong {
+  color: #0c4a6e;
+}
+
+.feature-checklist {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.feature-checklist h3 {
+  color: #14532d;
+  margin: 0 0 20px 0;
+  font-size: 18px;
+}
+
+.checklist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 24px;
+}
+
+.checklist-section h4 {
+  color: #166534;
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.checklist-section ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.checklist-section li {
+  color: #15803d;
+  margin-bottom: 6px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checklist-section li::before {
+  content: '✓';
+  color: #16a34a;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .test-examples-guide {
+    padding: 16px;
+  }
+  
+  .examples-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .checklist-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .example-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}

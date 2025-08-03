@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DynamicQueryInterface Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover { background: #0056b3; }
+        .entity-demo {
+            display: inline-block;
+            padding: 4px 8px;
+            margin: 2px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .entity-products { background: #2563EB20; color: #2563EB; border: 2px solid #2563EB; }
+        .entity-customers { background: #05966920; color: #059669; border: 2px solid #059669; }
+        .entity-info { background: #7C3AED20; color: #7C3AED; border: 2px solid #7C3AED; }
+        .entity-filter { background: #EA580C20; color: #EA580C; border: 2px solid #EA580C; }
+    </style>
+</head>
+<body>
+    <h1>🧪 DynamicQueryInterface Comprehensive Test</h1>
+    
+    <div class="test-container">
+        <h2>🔌 Backend Connection Test</h2>
+        <button class="test-button" onclick="testBackendConnection()">Test Backend Health</button>
+        <div id="connectionResult"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>🔍 Entity Extraction Tests</h2>
+        <p>Testing all entity detection patterns from the SQL schema relationships:</p>
+        
+        <div>
+            <strong>Test Queries:</strong><br>
+            <span class="entity-demo entity-products">sales</span> of <span class="entity-demo entity-products">laptop</span> → Should detect: products + sales<br>
+            <span class="entity-demo entity-customers">ahmed</span> <span class="entity-demo entity-info">tasks</span> → Should detect: customers + tasks<br>
+            <span class="entity-demo entity-products">laptop</span> <span class="entity-demo entity-info">stock</span> in <span class="entity-demo entity-filter">paris</span> → Should detect: products + stock + location_filter<br>
+            <span class="entity-demo entity-filter">pending</span> <span class="entity-demo entity-info">tasks</span> for <span class="entity-demo entity-customers">ahmed</span> → Should detect: status_filter + tasks + customers
+        </div>
+        
+        <button class="test-button" onclick="runAllEntityTests()">Run All Entity Tests</button>
+        <div id="entityResults"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>📊 Query Processing Tests</h2>
+        <button class="test-button" onclick="runAllQueryTests()">Run All Query Tests</button>
+        <div id="queryResults"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>🎯 Relationship Validation</h2>
+        <p>Validating SQL relationships match schema.sql:</p>
+        <ul>
+            <li><strong>Sales → Products:</strong> sales.product_id → products.id</li>
+            <li><strong>Sales → Customers:</strong> sales.customer_id → customers.id</li>
+            <li><strong>Tasks → Users:</strong> tasks.assigned_to → users.id</li>
+            <li><strong>Stock → Products:</strong> stock.product_id → products.id</li>
+        </ul>
+        <button class="test-button" onclick="validateRelationships()">Validate Relationships</button>
+        <div id="relationshipResults"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+
+        async function testBackendConnection() {
+            const resultDiv = document.getElementById('connectionResult');
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                resultDiv.innerHTML = `<div class="test-result success">✅ Backend Connected: ${data.service} at ${data.timestamp}</div>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="test-result error">❌ Backend Connection Failed: ${error.message}</div>`;
+            }
+        }
+
+        async function runAllEntityTests() {
+            const resultDiv = document.getElementById('entityResults');
+            resultDiv.innerHTML = '<div class="test-result info">🔄 Running entity extraction tests...</div>';
+
+            const testCases = [
+                { query: 'sales of laptop', expectedEntities: ['sales', 'laptop'], expectedTables: ['sales', 'products'] },
+                { query: 'ahmed tasks', expectedEntities: ['ahmed', 'tasks'], expectedTables: ['customers', 'tasks'] },
+                { query: 'laptop stock in paris', expectedEntities: ['laptop', 'stock', 'paris'], expectedTables: ['products', 'stock'] },
+                { query: 'pending tasks for ahmed', expectedEntities: ['pending', 'tasks', 'ahmed'], expectedTables: ['tasks', 'customers'] },
+                { query: 'wireless mouse sales', expectedEntities: ['mouse', 'sales'], expectedTables: ['products', 'sales'] },
+                { query: 'customers in london', expectedEntities: ['customers', 'london'], expectedTables: ['customers'] },
+                { query: 'stock below 10', expectedEntities: ['stock'], expectedTables: ['stock'] }
+            ];
+
+            let results = '';
+            let passedTests = 0;
+
+            for (const testCase of testCases) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/chat/extract`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: testCase.query })
+                    });
+                    
+                    const data = await response.json();
+                    const entities = data.entities || [];
+                    
+                    const detectedTexts = entities.map(e => e.text);
+                    const detectedTables = [...new Set(entities.map(e => e.table).filter(Boolean))];
+                    
+                    const entitiesFound = testCase.expectedEntities.every(expected => 
+                        detectedTexts.some(detected => detected.includes(expected))
+                    );
+                    
+                    const tablesCorrect = testCase.expectedTables.every(expected =>
+                        detectedTables.includes(expected)
+                    );
+                    
+                    if (entitiesFound && tablesCorrect) {
+                        results += `<div class="test-result success">✅ "${testCase.query}": Found ${entities.length} entities in tables [${detectedTables.join(', ')}]</div>`;
+                        passedTests++;
+                    } else {
+                        results += `<div class="test-result error">❌ "${testCase.query}": Expected entities [${testCase.expectedEntities.join(', ')}] in tables [${testCase.expectedTables.join(', ')}], got [${detectedTexts.join(', ')}] in [${detectedTables.join(', ')}]</div>`;
+                    }
+                } catch (error) {
+                    results += `<div class="test-result error">❌ "${testCase.query}": Error - ${error.message}</div>`;
+                }
+            }
+
+            results += `<div class="test-result info">📊 Entity Tests: ${passedTests}/${testCases.length} passed (${Math.round(passedTests/testCases.length*100)}%)</div>`;
+            resultDiv.innerHTML = results;
+        }
+
+        async function runAllQueryTests() {
+            const resultDiv = document.getElementById('queryResults');
+            resultDiv.innerHTML = '<div class="test-result info">🔄 Running query processing tests...</div>';
+
+            const testCases = [
+                { query: 'sales of laptop', expectedRecords: '>0', expectedJoins: ['sales', 'products'] },
+                { query: 'ahmed tasks', expectedRecords: '>0', expectedJoins: ['customers', 'tasks'] },
+                { query: 'laptop stock in paris', expectedRecords: '>0', expectedJoins: ['products', 'stock'] },
+                { query: 'pending tasks for ahmed', expectedRecords: '>0', expectedJoins: ['tasks', 'customers'] }
+            ];
+
+            let results = '';
+            let passedTests = 0;
+
+            for (const testCase of testCases) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/chat/query`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: testCase.query, userName: 'Ahmed Hassan' })
+                    });
+                    
+                    const data = await response.json();
+                    const records = data.data || [];
+                    const entities = data.responseEntities || [];
+                    const tables = [...new Set(entities.map(e => e.table).filter(Boolean))];
+                    
+                    const recordsOk = records.length > 0;
+                    const joinsOk = testCase.expectedJoins.every(table => tables.includes(table));
+                    
+                    if (recordsOk && joinsOk) {
+                        results += `<div class="test-result success">✅ "${testCase.query}": ${records.length} records, tables [${tables.join(', ')}]</div>`;
+                        passedTests++;
+                    } else {
+                        results += `<div class="test-result error">❌ "${testCase.query}": ${records.length} records, expected tables [${testCase.expectedJoins.join(', ')}], got [${tables.join(', ')}]</div>`;
+                    }
+                } catch (error) {
+                    results += `<div class="test-result error">❌ "${testCase.query}": Error - ${error.message}</div>`;
+                }
+            }
+
+            results += `<div class="test-result info">📊 Query Tests: ${passedTests}/${testCases.length} passed (${Math.round(passedTests/testCases.length*100)}%)</div>`;
+            resultDiv.innerHTML = results;
+        }
+
+        async function validateRelationships() {
+            const resultDiv = document.getElementById('relationshipResults');
+            
+            const relationships = [
+                {
+                    description: 'Sales → Products relationship',
+                    query: 'sales of laptop',
+                    expectedTables: ['sales', 'products'],
+                    expectedFields: ['product_name', 'sale_id']
+                },
+                {
+                    description: 'Tasks → Users relationship', 
+                    query: 'ahmed tasks',
+                    expectedTables: ['tasks', 'customers'],
+                    expectedFields: ['task_id', 'assigned_to']
+                },
+                {
+                    description: 'Stock → Products relationship',
+                    query: 'laptop stock in paris',
+                    expectedTables: ['stock', 'products'],
+                    expectedFields: ['product_name', 'warehouse_location']
+                }
+            ];
+
+            let results = '';
+            let passedTests = 0;
+
+            for (const rel of relationships) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/chat/query`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: rel.query, userName: 'Ahmed Hassan' })
+                    });
+                    
+                    const data = await response.json();
+                    const records = data.data || [];
+                    const entities = data.responseEntities || [];
+                    const tables = [...new Set(entities.map(e => e.table).filter(Boolean))];
+                    
+                    if (records.length > 0) {
+                        const firstRecord = records[0];
+                        const fields = Object.keys(firstRecord);
+                        const hasExpectedFields = rel.expectedFields.some(field => fields.includes(field));
+                        const hasExpectedTables = rel.expectedTables.some(table => tables.includes(table));
+                        
+                        if (hasExpectedFields && hasExpectedTables) {
+                            results += `<div class="test-result success">✅ ${rel.description}: Valid relationship with fields [${fields.join(', ')}]</div>`;
+                            passedTests++;
+                        } else {
+                            results += `<div class="test-result error">❌ ${rel.description}: Missing expected fields or tables</div>`;
+                        }
+                    } else {
+                        results += `<div class="test-result error">❌ ${rel.description}: No records returned</div>`;
+                    }
+                } catch (error) {
+                    results += `<div class="test-result error">❌ ${rel.description}: Error - ${error.message}</div>`;
+                }
+            }
+
+            results += `<div class="test-result info">📊 Relationship Tests: ${passedTests}/${relationships.length} passed (${Math.round(passedTests/relationships.length*100)}%)</div>`;
+            resultDiv.innerHTML = results;
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(testBackendConnection, 1000);
+        });
+    </script>
+</body>
+</html>

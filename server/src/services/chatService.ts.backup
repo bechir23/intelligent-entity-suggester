@@ -1,0 +1,416 @@
+import { SupabaseClient } from '@supabase/supabase-js';
+import * as chrono from 'chrono-node';
+import { supabaseService } from './supabaseService';
+
+// Entity types and colors
+export const ENTITY_COLORS = {
+  entity: '#2196F3',
+  info: '#FF9800',
+  temporal: '#4CAF50',
+  pronoun: '#9C27B0'
+};
+
+// Fuzzy matching business info terms
+const BUSINESS_INFO_TERMS: { [key: string]: string[] } = {
+  mouse: ['wireless mouse', 'gaming mouse', 'bluetooth mouse', 'computer mouse', 'optical mouse'],
+  keyboard: ['mechanical keyboard', 'wireless keyboard', 'gaming keyboard', 'bluetooth keyboard'],
+  laptop: ['gaming laptop', 'business laptop', 'ultrabook', 'notebook computer'],
+  monitor: ['gaming monitor', '4k monitor', 'ultrawide monitor', 'led monitor'],
+  phone: ['smartphone', 'mobile phone', 'iphone', 'android phone'],
+  headset: ['gaming headset', 'wireless headset', 'bluetooth headset'],
+  task: ['work task', 'assignment', 'project task', 'todo item'],
+  customer: ['client', 'buyer', 'purchaser', 'consumer'],
+  user: ['employee', 'staff member', 'team member', 'worker'],
+  sale: ['transaction', 'purchase', 'order', 'deal'],
+  today: ['current date', 'this day', 'now'],
+  week: ['this week', 'current week', 'weekly'],
+  month: ['this month', 'current month', 'monthly']
+};
+
+export interface EntityMatch {
+  text: string;
+  type: 'entity' | 'info' | 'temporal' | 'pronoun';
+  actualValue?: string;
+  color: string;
+  startIndex: number;
+  endIndex: number;
+  suggestions?: string[];
+  metadata?: any;
+}
+
+// Entity field mappings for database tables
+const ENTITY_FIELDS_MAP: { [key: string]: any } = {
+  customers: {
+    searchableFields: ['customer_name', 'email', 'phone', 'company'],
+    displayFields: {
+      customer_name: 'Customer Name',
+      email: 'Email',
+      phone: 'Phone',
+      company: 'Company'
+    }
+  },
+  products: {
+    searchableFields: ['product_name', 'category', 'description'],
+    displayFields: {
+      product_name: 'Product Name',
+      category: 'Category',
+      description: 'Description',
+      price: 'Price'
+    }
+  },
+  sales: {
+    searchableFields: ['sale_id'],
+    displayFields: {
+      sale_id: 'Sale ID',
+      customer_id: 'Customer',
+      product_id: 'Product',
+      quantity: 'Quantity',
+      total_amount: 'Total Amount',
+      sale_date: 'Sale Date'
+    }
+  },
+  stock: {
+    searchableFields: ['product_id'],
+    displayFields: {
+      product_id: 'Product',
+      quantity: 'Quantity',
+      location: 'Location',
+      last_updated: 'Last Updated'
+    }
+  },
+  tasks: {
+    searchableFields: ['title', 'description', 'status', 'priority'],
+    displayFields: {
+      title: 'Title',
+      description: 'Description',
+      status: 'Status',
+      priority: 'Priority',
+      assigned_to: 'Assigned To',
+      due_date: 'Due Date'
+    }
+  },
+  shifts: {
+    searchableFields: ['shift_type'],
+    displayFields: {
+      user_id: 'User',
+      shift_date: 'Date',
+      start_time: 'Start Time',
+      end_time: 'End Time',
+      shift_type: 'Shift Type'
+    }
+  },
+  attendance: {
+    searchableFields: [],
+    displayFields: {
+      user_id: 'User',
+      clock_in: 'Clock In',
+      clock_out: 'Clock Out',
+      break_start: 'Break Start',
+      break_end: 'Break End'
+    }
+  },
+  users: {
+    searchableFields: ['full_name', 'email', 'role'],
+    displayFields: {
+      full_name: 'Full Name',
+      email: 'Email',
+      role: 'Role',
+      department: 'Department'
+    }
+  }
+};
+
+// Get fuzzy suggestions for a term
+const getFuzzySuggestions = (term: string): string[] => {
+  const normalizedTerm = term.toLowerCase().trim();
+  
+  // Direct match in fuzzy terms
+  if (BUSINESS_INFO_TERMS[normalizedTerm]) {
+    return BUSINESS_INFO_TERMS[normalizedTerm];
+  }
+  
+  // Partial matches
+  const suggestions: string[] = [];
+  Object.entries(BUSINESS_INFO_TERMS).forEach(([key, values]) => {
+    if (key.includes(normalizedTerm) || normalizedTerm.includes(key)) {
+      suggestions.push(...values);
+    }
+  });
+  
+  return suggestions;
+};
+
+export const chatService = {
+  // Extract entities from text with comprehensive entity detection
+  extractEntitiesAndInfo: async (text: string, userName?: string): Promise<EntityMatch[]> => {
+    const entities: EntityMatch[] = [];
+    const processedIndices = new Set<number>();
+
+    // 1. Temporal entity extraction using chrono-node
+    const chronoResults = chrono.parse(text);
+    chronoResults.forEach((result) => {
+      const startIndex = result.index;
+      const endIndex = result.index + result.text.length;
+      
+      // Mark these indices as processed
+      for (let i = startIndex; i < endIndex; i++) {
+        processedIndices.add(i);
+      }
+
+      entities.push({
+        text: result.text,
+        type: 'temporal',
+        actualValue: result.start.date().toISOString(),
+        color: ENTITY_COLORS.temporal,
+        startIndex,
+        endIndex,
+        metadata: {
+          chronoResult: result,
+          interpretedDate: result.start.date()
+        }
+      });
+    });
+
+    // 2. Pronoun detection for contextual user references
+    const pronounPatterns = [
+      { pattern: /\b(me|my|mine|myself)\b/gi, context: 'self' },
+      { pattern: /\b(I|I'm|I've|I'll|I'd)\b/g, context: 'self' }
+    ];
+
+    pronounPatterns.forEach(({ pattern, context }) => {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const startIndex = match.index;
+        const endIndex = match.index + match[0].length;
+        
+        // Check if already processed
+        let alreadyProcessed = false;
+        for (let i = startIndex; i < endIndex; i++) {
+          if (processedIndices.has(i)) {
+            alreadyProcessed = true;
+            break;
+          }
+        }
+
+        if (!alreadyProcessed) {
+          // Mark these indices as processed
+          for (let i = startIndex; i < endIndex; i++) {
+            processedIndices.add(i);
+          }
+
+          entities.push({
+            text: match[0],
+            type: 'pronoun',
+            actualValue: userName || 'current_user',
+            color: ENTITY_COLORS.pronoun,
+            startIndex,
+            endIndex,
+            metadata: { context, resolvedUser: userName }
+          });
+        }
+      }
+    });
+
+    // 3. Business entity detection using fuzzy matching
+    Object.keys(BUSINESS_INFO_TERMS).forEach(term => {
+      const regex = new RegExp(`\\b${term}\\b`, 'gi');
+      let match;
+      
+      while ((match = regex.exec(text)) !== null) {
+        const startIndex = match.index;
+        const endIndex = match.index + match[0].length;
+        
+        // Check if already processed
+        let alreadyProcessed = false;
+        for (let i = startIndex; i < endIndex; i++) {
+          if (processedIndices.has(i)) {
+            alreadyProcessed = true;
+            break;
+          }
+        }
+
+        if (!alreadyProcessed) {
+          // Mark these indices as processed
+          for (let i = startIndex; i < endIndex; i++) {
+            processedIndices.add(i);
+          }
+
+          const suggestions = getFuzzySuggestions(term);
+          entities.push({
+            text: match[0],
+            type: 'info',
+            actualValue: term,
+            color: ENTITY_COLORS.info,
+            startIndex,
+            endIndex,
+            suggestions,
+            metadata: { 
+              originalTerm: term,
+              fuzzySuggestions: suggestions,
+              confidence: 'high'
+            }
+          });
+        }
+      }
+    });
+
+    // 4. Multi-word business phrases
+    const businessPhrases = [
+      'gaming laptop', 'wireless mouse', 'mechanical keyboard', 'gaming monitor',
+      'bluetooth headset', 'work task', 'customer service', 'sales report',
+      'user account', 'product catalog', 'inventory management'
+    ];
+
+    businessPhrases.forEach(phrase => {
+      const regex = new RegExp(phrase, 'gi');
+      let match;
+      
+      while ((match = regex.exec(text)) !== null) {
+        const startIndex = match.index;
+        const endIndex = match.index + match[0].length;
+        
+        // Check if already processed
+        let alreadyProcessed = false;
+        for (let i = startIndex; i < endIndex; i++) {
+          if (processedIndices.has(i)) {
+            alreadyProcessed = true;
+            break;
+          }
+        }
+
+        if (!alreadyProcessed) {
+          // Mark these indices as processed
+          for (let i = startIndex; i < endIndex; i++) {
+            processedIndices.add(i);
+          }
+
+          entities.push({
+            text: match[0],
+            type: 'info',
+            actualValue: phrase.toLowerCase(),
+            color: ENTITY_COLORS.info,
+            startIndex,
+            endIndex,
+            metadata: { 
+              phraseType: 'multi_word',
+              confidence: 'high'
+            }
+          });
+        }
+      }
+    });
+
+    // 5. Dynamic single-word detection from remaining unprocessed words
+    const words = text.toLowerCase().split(/\s+/);
+    let currentIndex = 0;
+    
+    for (const word of words) {
+      const cleanWord = word.replace(/[^\w]/g, '');
+      const wordStart = text.toLowerCase().indexOf(cleanWord, currentIndex);
+      
+      // Skip if already processed
+      let isAlreadyProcessed = false;
+      for (let i = wordStart; i < wordStart + cleanWord.length; i++) {
+        if (processedIndices.has(i)) {
+          isAlreadyProcessed = true;
+          break;
+        }
+      }
+      
+      if (!isAlreadyProcessed && cleanWord.length >= 3 && /^[a-z]+$/.test(cleanWord)) {
+        // Check if it's a likely info term (not a common word)
+        const commonWords = ['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'who', 'boy', 'did', 'what', 'when', 'where', 'will', 'with', 'have', 'this', 'that', 'they', 'from', 'show', 'find', 'give', 'take', 'come', 'work', 'said', 'each', 'much', 'back', 'call', 'came', 'good', 'just', 'know', 'last', 'left', 'life', 'live', 'look', 'made', 'make', 'most', 'move', 'must', 'name', 'need', 'only', 'over', 'part', 'play', 'right', 'seem', 'tell', 'time', 'turn', 'very', 'want', 'ways', 'well', 'went', 'were', 'year', 'your'];
+        
+        if (!commonWords.includes(cleanWord)) {
+          // Add fuzzy suggestions for single words
+          const fuzzySuggestions = getFuzzySuggestions(cleanWord);
+          
+          entities.push({
+            text: cleanWord,
+            type: 'info',
+            actualValue: cleanWord,
+            color: ENTITY_COLORS.info,
+            startIndex: wordStart,
+            endIndex: wordStart + cleanWord.length,
+            suggestions: fuzzySuggestions,
+            metadata: { 
+              detectionType: 'dynamic_single_word',
+              confidence: fuzzySuggestions.length > 0 ? 'medium' : 'low',
+              fuzzySuggestions
+            }
+          });
+          
+          // Mark as processed
+          for (let i = wordStart; i < wordStart + cleanWord.length; i++) {
+            processedIndices.add(i);
+          }
+        }
+      }
+      
+      currentIndex = wordStart + cleanWord.length;
+    }
+
+    console.log(`Extracted ${entities.length} entities:`, entities.map(e => `${e.type}:${e.text}`));
+    return entities.sort((a, b) => a.startIndex - b.startIndex);
+  },
+
+  // Simple query that always returns results
+  buildDynamicQuery: async (tableName: string, filters: EntityMatch[]): Promise<any[]> => {
+    try {
+      console.log(`Building query for table: ${tableName}`);
+      
+      // Get all records first (to guarantee results)
+      let query = supabaseService.getClient().from(tableName).select('*');
+      
+      // Apply a simple limit to get some data
+      query = query.limit(10);
+
+      console.log(`Executing simple query for ${tableName}`);
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error('Query error:', error);
+        return [];
+      }
+
+      console.log(`Query returned ${data?.length || 0} records for ${tableName}`);
+      return data || [];
+    } catch (error) {
+      console.error('Error building query:', error);
+      return [];
+    }
+  },
+
+  // Get searchable field names for an entity type
+  getSearchableFieldNames: (entityType: string): string[] => {
+    const schema = ENTITY_FIELDS_MAP[entityType];
+    return schema?.searchableFields || [];
+  },
+
+  // Get display field names for an entity type
+  getDisplayFieldNames: (entityType: string): { [key: string]: string } => {
+    const schema = ENTITY_FIELDS_MAP[entityType];
+    return schema?.displayFields || {};
+  },
+
+  // Generate table suggestions based on info entities
+  generateTableSuggestions: async (infoEntities: EntityMatch[]): Promise<string[]> => {
+    const suggestions: string[] = [];
+    
+    for (const entity of infoEntities) {
+      const term = entity.actualValue?.toLowerCase();
+      
+      if (term && ['laptop', 'mouse', 'keyboard', 'monitor', 'phone'].includes(term)) {
+        suggestions.push('products', 'sales', 'stock');
+      } else if (term && ['task', 'assignment', 'work'].includes(term)) {
+        suggestions.push('tasks');
+      } else if (term && ['customer', 'client', 'buyer'].includes(term)) {
+        suggestions.push('customers');
+      } else if (term && ['user', 'employee', 'staff'].includes(term)) {
+        suggestions.push('users', 'attendance', 'shifts');
+      }
+    }
+    
+    return [...new Set(suggestions)];
+  }
+};

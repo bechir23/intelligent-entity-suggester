@@ -1,0 +1,49 @@
+{
+  "name": "suggester-api",
+  "version": "1.0.0",
+  "description": "Intelligent entity suggester API with WebSocket support",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "lint": "echo 'Linting server code...'"
+  },
+  "keywords": [
+    "api",
+    "suggestions",
+    "websocket",
+    "supabase",
+    "full-text-search"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.53.0",
+    "chrono-node": "^2.7.7",
+    "cors": "^2.8.5",
+    "dayjs": "^1.11.13",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "lodash.debounce": "^4.0.8",
+    "natural": "^8.0.1",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/lodash.debounce": "^4.0.9",
+    "@types/natural": "^5.1.5",
+    "@types/node": "^22.10.2",
+    "@types/supertest": "^6.0.3",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

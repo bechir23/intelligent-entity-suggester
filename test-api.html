@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>Entity Extraction API Test</h1>
+    <input type="text" id="input" placeholder="Type here..." style="width: 300px; padding: 10px;">
+    <div id="result" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;"></div>
+    <div id="debug" style="margin-top: 20px; padding: 10px; background: #f0f0f0;"></div>
+
+    <script>
+        const input = document.getElementById('input');
+        const result = document.getElementById('result');
+        const debug = document.getElementById('debug');
+
+        let timeout;
+        input.addEventListener('input', (e) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(async () => {
+                const text = e.target.value;
+                debug.innerHTML = `🔍 Testing: "${text}"`;
+                
+                if (!text.trim() || text.length < 2) {
+                    result.innerHTML = '';
+                    return;
+                }
+
+                try {
+                    debug.innerHTML += '<br>📡 Making API call...';
+                    
+                    const response = await fetch('http://localhost:3001/api/chat/extract', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: text })
+                    });
+
+                    debug.innerHTML += '<br>✅ Response received, parsing...';
+                    
+                    const data = await response.json();
+                    
+                    debug.innerHTML += `<br>📊 Entities count: ${data.entities ? data.entities.length : 0}`;
+                    
+                    if (data.entities && data.entities.length > 0) {
+                        result.innerHTML = `
+                            <h3>🎯 Found ${data.entities.length} entities:</h3>
+                            ${data.entities.map(entity => `
+                                <div style="margin: 5px 0; padding: 5px; border-left: 3px solid ${entity.color};">
+                                    <strong>${entity.text}</strong> (${entity.type})
+                                    ${entity.hoverText ? `<br><small>${entity.hoverText}</small>` : ''}
+                                    ${entity.suggestions ? `<br><small>Suggestions: ${entity.suggestions.length}</small>` : ''}
+                                </div>
+                            `).join('')}
+                        `;
+                    } else {
+                        result.innerHTML = '<p>No entities found</p>';
+                    }
+                } catch (error) {
+                    debug.innerHTML += `<br>❌ Error: ${error.message}`;
+                    result.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                }
+            }, 300);
+        });
+    </script>
+</body>
+</html>

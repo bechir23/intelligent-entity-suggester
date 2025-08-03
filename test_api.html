@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat API Test</title>
+</head>
+<body>
+    <h1>Chat API Test</h1>
+    <div id="results"></div>
+    
+    <script>
+// Simple Chat API Test
+async function testChatAPI() {
+  const resultsDiv = document.getElementById('results');
+  
+  function log(message) {
+    resultsDiv.innerHTML += message + '<br>';
+    console.log(message);
+  }
+  
+  log('🧪 Testing Chat API...');
+  
+  // Test 1: Entity Extraction
+  log('<br>1. Testing Entity Extraction...');
+  try {
+    const extractResponse = await fetch('http://localhost:3001/api/chat/extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'show me Ahmed sales of laptop',
+        userId: 'demo-user-123',
+        userName: 'Ahmed Ali'
+      })
+    });
+    
+    const extractData = await extractResponse.json();
+    log('✅ Entities extracted: ' + (extractData.entities?.length || 0));
+    extractData.entities?.forEach(entity => {
+      log(`   - ${entity.text} (${entity.type}) -> ${entity.actualValue || 'N/A'}`);
+    });
+  } catch (error) {
+    log('❌ Entity extraction failed: ' + error.message);
+  }
+
+  // Test 2: Chat Query
+  log('<br>2. Testing Chat Query...');
+  try {
+    const queryResponse = await fetch('http://localhost:3001/api/chat/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'show me customers',
+        entities: [],
+        userId: 'demo-user-123',
+        userName: 'Ahmed Ali'
+      })
+    });
+    
+    const queryData = await queryResponse.json();
+    log('✅ Chat response received');
+    log('   Response: ' + queryData.response);
+    log('   Data items: ' + (queryData.data?.length || 0));
+  } catch (error) {
+    log('❌ Chat query failed: ' + error.message);
+  }
+}
+
+// Run the test when page loads
+window.onload = () => {
+  testChatAPI().catch(console.error);
+};
+    </script>
+</body>
+</html>
