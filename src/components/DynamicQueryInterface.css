@@ -7,6 +7,28 @@
   height: auto;
   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar for the main page */
+.dynamic-query-container::-webkit-scrollbar {
+  width: 12px;
+}
+
+.dynamic-query-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 6px;
+}
+
+.dynamic-query-container::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border-radius: 6px;
+  border: 2px solid #f1f5f9;
+}
+
+.dynamic-query-container::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
 }
 
 /* Header Section */
@@ -166,10 +188,10 @@
 /* Results Section */
 .results-section {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: visible;
   padding: 2rem;
   background: #f8fafc;
-  min-height: 60vh;
+  min-height: auto;
 }
 
 /* Welcome State */
@@ -257,10 +279,10 @@
 /* Dynamic Table */
 .dynamic-table-container {
   height: auto;
-  min-height: 400px;
+  min-height: auto;
   background: white;
   border-radius: 16px;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: 0 4px 25px rgba(0, 0, 0, 0.1);
   border: 1px solid #e5e7eb;
   display: flex;
@@ -304,27 +326,8 @@
 
 .table-wrapper {
   flex: 1;
-  overflow: auto;
-  max-height: 70vh;
-  min-height: 300px;
-}
-
-.table-wrapper::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
-}
-
-.table-wrapper::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-
-.table-wrapper::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 6px;
-}
-
-.table-wrapper::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  overflow: visible;
+  /* Remove table scrolling, let page handle it */
 }
 
 .dynamic-table {

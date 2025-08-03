@@ -651,7 +651,7 @@ export const DynamicQueryInterface: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {tableData.slice(0, 50).map((row, index) => (
+              {tableData.map((row, index) => (
                 <tr key={index} className="table-row">
                   {columns.map(column => (
                     <td key={column} title={String(row[column] || '')}>
@@ -664,9 +664,16 @@ export const DynamicQueryInterface: React.FC = () => {
           </table>
         </div>
         
-        {tableData.length > 50 && (
-          <div className="table-footer">
-            Showing 50 of {tableData.length} records
+        {tableData.length > 0 && (
+          <div className="table-footer" style={{ 
+            background: '#f8fafc',
+            padding: '1rem',
+            textAlign: 'center',
+            borderTop: '1px solid #e5e7eb',
+            color: '#6b7280',
+            fontWeight: '600'
+          }}>
+            Showing all {tableData.length} record{tableData.length !== 1 ? 's' : ''}
           </div>
         )}
       </div>

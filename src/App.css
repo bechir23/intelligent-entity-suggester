@@ -10,8 +10,34 @@ html, body, #root {
   width: 100%;
 }
 
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Custom scrollbar for the entire page */
+body::-webkit-scrollbar {
+  width: 14px;
+}
+
+body::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 7px;
+}
+
+body::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border-radius: 7px;
+  border: 2px solid #f1f5f9;
+}
+
+body::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+}
+
 .App {
-  height: 100vh;
+  min-height: 100vh;
   width: 100vw;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
