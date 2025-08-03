@@ -24,11 +24,13 @@
     "setup-db": "echo 'Please run the setup-database.sql script in your Supabase SQL editor'"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
     "@supabase/supabase-js": "^2.53.0",
     "@tiptap/pm": "^3.0.7",
     "@tiptap/react": "^3.0.7",
     "@tiptap/starter-kit": "^3.0.7",
     "@types/lodash": "^4.17.20",
+    "ace-builds": "^1.43.2",
     "axios": "^1.11.0",
     "chrono-node": "^2.8.3",
     "concurrently": "^9.1.2",
@@ -36,8 +38,10 @@
     "lodash": "^4.17.21",
     "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.536.0",
+    "monaco-editor": "^0.52.2",
     "node-fetch": "^3.3.2",
     "react": "^19.1.0",
+    "react-ace": "^14.0.1",
     "react-dom": "^19.1.0",
     "socket.io-client": "^4.8.1"
   },

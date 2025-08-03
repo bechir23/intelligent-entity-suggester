@@ -3,13 +3,6 @@ import debounce from 'lodash.debounce';
 import './DynamicQueryInterface.css';
 
 // Icons
-const SearchIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <circle cx="11" cy="11" r="8"/>
-    <path d="M21 21l-4.35-4.35"/>
-  </svg>
-);
-
 const DatabaseIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <ellipse cx="12" cy="5" rx="9" ry="3"/>
@@ -225,11 +218,11 @@ export const DynamicQueryInterface: React.FC = () => {
       try {
         console.log('🔍 Processing enhanced query with production backend:', queryText);
         
-        const response = await fetch('http://localhost:3001/api/extract-entities', {
+        const response = await fetch('http://localhost:3001/api/chat/query', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            text: queryText,
+            message: queryText,
             userName: 'Ahmed Hassan'
           })
         });
@@ -253,6 +246,12 @@ export const DynamicQueryInterface: React.FC = () => {
           summary?: { primaryTable?: string; joinTables?: string[] };
         } = await response.json();
         
+        console.log('🔍 Full API Response:', result);
+        console.log('🔍 Response keys:', Object.keys(result));
+        console.log('🔍 result.data type:', typeof result.data, 'length:', result.data?.length);
+        console.log('🔍 result.entities type:', typeof result.entities, 'length:', result.entities?.length);
+        console.log('🔍 result.query:', result.query);
+        
         console.log('✅ Enhanced result with comprehensive SQL analysis:', {
           entities: result.entities?.length || 0,
           dataRecords: result.data?.length || 0,
@@ -267,6 +266,19 @@ export const DynamicQueryInterface: React.FC = () => {
         setRecordCount(result.recordCount || result.data?.length || 0);
         setTableName(result.summary?.primaryTable || 'results');
         setJoinTables(result.summary?.joinTables || []);
+        
+        // Debug SQL query issue
+        console.log('🔍 SQL Debug - result.query:', result.query);
+        console.log('🔍 SQL Debug - result.query?.sql:', result.query?.sql);
+        console.log('🔍 SQL Debug - About to set sqlQuery to:', result.query?.sql || '');
+        console.log('🔍 Table Data Debug - result.data:', result.data);
+        console.log('🔍 Table Data Debug - result.data.length:', result.data?.length);
+        
+        setTableData(result.data || []);
+        setRecordCount(result.recordCount || result.data?.length || 0);
+        
+        console.log('🔍 After setTableData - tableData should now have:', result.data?.length || 0, 'records');
+        
         setSqlQuery(result.query?.sql || '');
         
         // Update entity hover text with current user and date information
@@ -408,6 +420,11 @@ export const DynamicQueryInterface: React.FC = () => {
 
   // Render dynamic data table with SQL relationship info
   const renderDynamicTable = () => {
+    console.log('🔍 renderDynamicTable - tableData:', tableData);
+    console.log('🔍 renderDynamicTable - tableData.length:', tableData?.length);
+    console.log('🔍 renderDynamicTable - isLoading:', isLoading);
+    console.log('🔍 renderDynamicTable - query.length:', query.length);
+    
     if (!tableData || tableData.length === 0) {
       if (isLoading) {
         return (
@@ -489,6 +506,9 @@ export const DynamicQueryInterface: React.FC = () => {
     }
 
     const columns = Object.keys(tableData[0]);
+    console.log('🗄️ Table columns:', columns);
+    console.log('🗄️ First row data:', tableData[0]);
+    console.log('🗄️ Table data length:', tableData.length);
     
     return (
       <div className="dynamic-table-container">
@@ -518,75 +538,76 @@ export const DynamicQueryInterface: React.FC = () => {
             )}
           </div>
           
+          {/* SQL Query Debug Panel */}
           {sqlQuery && (
             <div style={{ 
-              marginTop: '8px', 
-              fontSize: '12px', 
-              fontFamily: 'monospace', 
-              color: sqlQuery.startsWith('ERROR') ? '#DC2626' : '#059669',
+              marginTop: '15px', 
+              marginBottom: '15px',
+              padding: '16px',
               background: sqlQuery.startsWith('ERROR') ? '#FEF2F2' : '#f0fdf4',
-              padding: '10px',
-              borderRadius: '6px',
               border: sqlQuery.startsWith('ERROR') ? '2px solid #DC2626' : '2px solid #059669',
-              position: 'relative',
-              boxShadow: sqlQuery.startsWith('ERROR') ? '0 2px 8px rgba(220, 38, 38, 0.2)' : '0 2px 8px rgba(5, 150, 105, 0.2)',
-              maxHeight: '150px',
-              overflow: 'auto'
+              borderRadius: '10px',
+              boxShadow: sqlQuery.startsWith('ERROR') ? '0 4px 12px rgba(220, 38, 38, 0.2)' : '0 4px 12px rgba(5, 150, 105, 0.2)',
             }}>
+              {/* Header */}
               <div style={{ 
                 display: 'flex', 
                 justifyContent: 'space-between', 
                 alignItems: 'center', 
-                marginBottom: '6px',
-                fontSize: '12px',
-                fontWeight: 'bold'
+                marginBottom: '12px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                color: sqlQuery.startsWith('ERROR') ? '#DC2626' : '#059669'
               }}>
-                <span>
-                  {sqlQuery.startsWith('ERROR') ? '❌ SQL ERROR' : '📊 SQL QUERY'}
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🗄️ {sqlQuery.startsWith('ERROR') ? 'SQL ERROR' : 'SQL Query'}
                 </span>
                 <span style={{ 
-                  fontSize: '10px', 
+                  fontSize: '12px', 
                   background: sqlQuery.startsWith('ERROR') ? '#DC2626' : '#059669',
                   color: 'white',
-                  padding: '2px 6px',
-                  borderRadius: '4px'
+                  padding: '4px 8px',
+                  borderRadius: '6px'
                 }}>
                   {recordCount} record{recordCount !== 1 ? 's' : ''}
                 </span>
               </div>
+              
+              {/* SQL Code Display */}
               <div style={{ 
-                background: sqlQuery.startsWith('ERROR') ? 'rgba(220, 38, 38, 0.1)' : 'rgba(5, 150, 105, 0.1)',
-                padding: '8px',
-                borderRadius: '4px',
-                fontSize: '11px',
-                wordBreak: 'break-word',
-                lineHeight: '1.3',
-                maxHeight: '80px',
+                background: 'white',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                padding: '12px',
+                fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                fontSize: '13px',
+                lineHeight: '1.5',
+                color: '#374151',
                 overflow: 'auto',
-                whiteSpace: 'pre-wrap'
+                maxHeight: '200px',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word'
               }}>
-                {sqlQuery.length > 200 ? `${sqlQuery.substring(0, 200)}...` : sqlQuery}
+                {sqlQuery}
               </div>
               
-              {/* Show filter breakdown */}
+              {/* Query Stats */}
               {!sqlQuery.startsWith('ERROR') && entities.length > 0 && (
                 <div style={{ 
-                  marginTop: '8px',
-                  fontSize: '11px',
-                  color: '#374151',
-                  borderTop: '1px solid #D1D5DB',
-                  paddingTop: '8px'
+                  marginTop: '12px',
+                  padding: '8px 12px',
+                  background: 'rgba(5, 150, 105, 0.1)',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  color: '#374151'
                 }}>
-                  <strong>🔍 Query Analysis:</strong>
-                  <div style={{ marginTop: '4px' }}>
-                    • Primary Table: <code style={{ background: '#F3F4F6', padding: '2px 4px', borderRadius: '2px' }}>{tableName}</code>
+                  <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                    <span><strong>Primary Table:</strong> {tableName}</span>
                     {joinTables.length > 1 && (
-                      <>
-                        <br/>• Joined Tables: <code style={{ background: '#F3F4F6', padding: '2px 4px', borderRadius: '2px' }}>{joinTables.join(', ')}</code>
-                      </>
+                      <span><strong>Joined Tables:</strong> {joinTables.slice(1).join(', ')}</span>
                     )}
-                    <br/>• Entities Detected: {entities.length}
-                    <br/>• Filters Applied: {entities.filter(e => ['numeric_filter', 'status_filter', 'location_filter', 'temporal'].includes(e.type)).length}
+                    <span><strong>Entities:</strong> {entities.length}</span>
+                    <span><strong>Filters:</strong> {entities.filter(e => ['numeric_filter', 'status_filter', 'location_filter', 'temporal'].includes(e.type)).length}</span>
                   </div>
                 </div>
               )}
@@ -623,7 +644,9 @@ export const DynamicQueryInterface: React.FC = () => {
             <thead>
               <tr>
                 {columns.map(column => (
-                  <th key={column}>{column.replace(/_/g, ' ').toUpperCase()}</th>
+                  <th key={column}>
+                    {column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -724,8 +747,29 @@ export const DynamicQueryInterface: React.FC = () => {
           </div>
         )}
         {sqlQuery && (
-          <div style={{ background: '#004400', padding: '5px', margin: '5px 0', fontSize: '11px' }}>
-            🗄️ SQL: {sqlQuery}
+          <div style={{ background: '#440044', padding: '5px', margin: '5px 0', fontSize: '11px' }}>
+            🗄️ SQL: {sqlQuery.length > 100 ? sqlQuery.substring(0, 100) + '...' : sqlQuery}
+          </div>
+        )}
+        
+        {/* Full SQL Query Display */}
+        {sqlQuery && sqlQuery.length > 100 && (
+          <div style={{ 
+            background: '#001122', 
+            padding: '8px', 
+            margin: '5px 0', 
+            fontSize: '10px',
+            fontFamily: 'monospace',
+            border: '1px solid #0088ff',
+            borderRadius: '4px',
+            maxHeight: '120px',
+            overflowY: 'auto',
+            whiteSpace: 'pre-wrap'
+          }}>
+            <div style={{ color: '#00aaff', fontWeight: 'bold', marginBottom: '4px' }}>
+              📋 FULL SQL STATEMENT:
+            </div>
+            {sqlQuery}
           </div>
         )}
         
@@ -749,7 +793,10 @@ export const DynamicQueryInterface: React.FC = () => {
             </div>
             <div>Position: {entity.startIndex}-{entity.endIndex}</div>
             <div>Table: {entity.table || 'N/A'}</div>
-            <div>Value: {entity.value || entity.actualValue || 'N/A'}</div>
+            <div>Detected Value: {entity.value || entity.actualValue || 'N/A'}</div>
+            {entity.actualValue && entity.actualValue !== entity.value && (
+              <div style={{ color: '#00ff88' }}>Actual Value: {entity.actualValue}</div>
+            )}
             {entity.confidence && (
               <div>Confidence: {Math.round(entity.confidence * 100)}%</div>
             )}
@@ -758,6 +805,16 @@ export const DynamicQueryInterface: React.FC = () => {
             )}
             {entity.hoverText && (
               <div style={{ fontSize: '11px', opacity: 0.8 }}>Hover: {entity.hoverText}</div>
+            )}
+            {entity.type === 'temporal' && (
+              <div style={{ color: '#ff8800', fontSize: '11px' }}>
+                ⚠️ Should show actual date range in SQL
+              </div>
+            )}
+            {entity.type === 'pronoun' && (
+              <div style={{ color: '#ff8800', fontSize: '11px' }}>
+                ⚠️ Should resolve to actual user ID in SQL
+              </div>
             )}
           </div>
         ))}
@@ -791,7 +848,6 @@ export const DynamicQueryInterface: React.FC = () => {
             borderRadius: '8px',
             padding: '12px'
           }}>
-            <SearchIcon />
             <input
               ref={inputRef}
               type="text"
@@ -805,93 +861,9 @@ export const DynamicQueryInterface: React.FC = () => {
                 border: 'none',
                 outline: 'none',
                 flex: 1,
-                fontSize: '16px',
-                marginLeft: '10px'
+                fontSize: '16px'
               }}
             />
-            
-            {/* Enhanced Entity overlays with better visibility */}
-            <div style={{
-              position: 'absolute',
-              top: '12px',
-              left: '42px',
-              right: '12px',
-              bottom: '12px',
-              pointerEvents: 'none',
-              zIndex: 5
-            }}>
-              {entities.map((entity, index) => (
-                <span
-                  key={index}
-                  style={{
-                    position: 'absolute',
-                    left: `${(entity.startIndex / Math.max(query.length, 1)) * 100}%`,
-                    width: `${((entity.endIndex - entity.startIndex) / Math.max(query.length, 1)) * 100}%`,
-                    backgroundColor: `${entity.color}60`,
-                    borderColor: entity.color,
-                    borderWidth: '3px',
-                    borderStyle: 'solid',
-                    borderRadius: '6px',
-                    height: '100%',
-                    pointerEvents: 'auto',
-                    cursor: 'help',
-                    zIndex: 10,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.2s ease',
-                    boxShadow: `0 0 8px ${entity.color}40`
-                  }}
-                  title={entity.hoverText || `${entity.type}: ${entity.text} (Table: ${entity.table || 'N/A'})`}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = `${entity.color}80`;
-                    e.currentTarget.style.transform = 'scale(1.05)';
-                    e.currentTarget.style.boxShadow = `0 0 15px ${entity.color}80`;
-                    handleEntityHover(entity, e);
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = `${entity.color}60`;
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = `0 0 8px ${entity.color}40`;
-                    setHoveredEntity(null);
-                  }}
-                  onClick={(e) => handleEntityClick(entity, e)}
-                >
-                  <span style={{
-                    fontSize: '12px',
-                    color: entity.color,
-                    fontWeight: 'bold',
-                    textShadow: '0 0 3px white',
-                    background: 'rgba(255,255,255,0.9)',
-                    padding: '2px 4px',
-                    borderRadius: '3px',
-                    minWidth: '16px',
-                    textAlign: 'center'
-                  }}>
-                    {entity.type.substring(0, 1).toUpperCase()}
-                  </span>
-                  {entity.suggestions && entity.suggestions.length > 0 && (
-                    <span style={{
-                      position: 'absolute',
-                      right: '2px',
-                      top: '-2px',
-                      fontSize: '10px',
-                      color: entity.color,
-                      fontWeight: 'bold',
-                      background: 'white',
-                      borderRadius: '50%',
-                      width: '16px',
-                      height: '16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      ▼
-                    </span>
-                  )}
-                </span>
-              ))}
-            </div>
             
             {isLoading && <div className="search-spinner"></div>}
           </div>
