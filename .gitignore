@@ -1,3 +1,7 @@
+# ====== ESSENTIAL PROJECT FILES ONLY ======
+# This gitignore includes only the essential files for the Intelligent Entity Suggester
+# Excludes all test files, comprehensive backends, and experimental components
+
 # Logs
 logs
 *.log
@@ -52,3 +56,90 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+
+# ====== TEST FILES AND EXPERIMENTAL CODE ======
+# Exclude all test files and experimental components
+test-*.js
+test-*.cjs
+test-*.mjs
+test-*.html
+test_*.js
+test_*.cjs
+test_*.mjs
+testing-*.html
+*-test.js
+*-test.cjs
+*-test.html
+cypress/
+tests/
+
+# ====== COMPREHENSIVE AND EXPERIMENTAL BACKENDS ======
+# Keep only the enhanced production backend
+server/comprehensive-*.cjs
+server/node-comprehensive-*.cjs
+*-comprehensive-*.cjs
+*comprehensive*.cjs
+quick-test.*
+perf-test.*
+final-test.*
+analyze_*.js
+enhance_*.js
+fix_*.js
+verify-*.js
+
+# ====== EXPERIMENTAL AND DEVELOPMENT HTML FILES ======
+# Exclude development testing pages
+enhanced_*.html
+quick-*.html
+websocket-*.html
+*-interface.html
+*-debug.html
+*-test-*.html
+
+# ====== DOCUMENTATION AND ANALYSIS FILES ======
+# Exclude analysis and completion documents (keep README.md only)
+*-COMPLETE.md
+*-RESULTS.md
+*-SUMMARY.md
+*-GUIDE.md
+TESTING*.md
+DEPLOYMENT*.md
+INTEGRATION*.md
+ENHANCEMENT*.md
+PROJECT_*.md
+COMPREHENSIVE_*.md
+ADVANCED_*.md
+CREATE-*.md
+GITHUB-*.md
+READY-*.md
+
+# ====== DOCKER AND DEPLOYMENT VARIATIONS ======
+# Keep only main docker-compose.yml
+docker-compose.*.yml
+!docker-compose.yml
+docker-start*.ps1
+docker-start*.sh
+docker-start*.bat
+restart-*.ps1
+restart-*.bat
+start-servers.*
+
+# ====== SETUP AND MIGRATION FILES ======
+# Exclude database setup variations (keep main database-setup.sql)
+setup-*.sql
+setup-*.mjs
+create-*.sql
+create-*.mjs
+create-*.cjs
+fix-*.sql
+*-functions.sql
+SUPABASE_*.sql
+
+# ====== UTILITY AND ANALYSIS SCRIPTS ======
+# Exclude utility scripts
+check-*.cjs
+extract_*.js
+final_*.mjs
+complete-*.js
+full-system-*.cjs
+master-*.cjs

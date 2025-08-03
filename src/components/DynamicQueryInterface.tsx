@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import debounce from 'lodash.debounce';
 import './DynamicQueryInterface.css';
 
@@ -27,7 +27,7 @@ const TableIcon = () => (
 
 interface EntityMatch {
   text: string;
-  type: 'entity' | 'info' | 'temporal' | 'pronoun' | 'user_filter' | 'product_filter' | 'status_filter' | 'location_filter';
+  type: 'entity' | 'info' | 'temporal' | 'pronoun' | 'user_filter' | 'product_filter' | 'status_filter' | 'location_filter' | 'numeric_filter';
   table?: string;
   actualValue?: string;
   value?: string;
@@ -38,6 +38,9 @@ interface EntityMatch {
   hoverText?: string;
   isFilter?: boolean;
   suggestions?: string[];
+  field?: string;
+  filterType?: string;
+  metadata?: any;
 }
 
 interface QueryResult {
@@ -60,6 +63,11 @@ export const DynamicQueryInterface: React.FC = () => {
   const [sqlQuery, setSqlQuery] = useState<string>('');
   const [joinTables, setJoinTables] = useState<string[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(true);
+  
+  // History management for undo/redo
+  const [history, setHistory] = useState<string[]>(['']);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Test queries for different SQL relationship patterns
   const testQueries = [
@@ -75,80 +83,81 @@ export const DynamicQueryInterface: React.FC = () => {
     'stock below 10'           // Stock + threshold filter
   ];
 
-  // Real-time entity extraction with enhanced debugging
-  const extractEntitiesFromInput = useCallback(async (text: string) => {
-    if (!text.trim() || text.length < 2) {
-      setEntities([]);
-      return;
+  // History management functions
+  const addToHistory = useCallback((newQuery: string) => {
+    if (newQuery !== history[historyIndex]) {
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push(newQuery);
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
     }
+  }, [history, historyIndex]);
 
-    try {
-      console.log('🔍 DynamicQuery: Extracting entities for:', text);
-      const response = await fetch('http://localhost:3001/api/chat/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text })
-      });
+  const undo = useCallback(() => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setQuery(history[newIndex]);
+    }
+  }, [history, historyIndex]);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  const redo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setQuery(history[newIndex]);
+    }
+  }, [history, historyIndex]);
+
+  // Enhanced query change handler with history
+  const handleQueryChange = useCallback((value: string) => {
+    setQuery(value);
+    addToHistory(value);
+  }, [addToHistory]);
+
+  // Keyboard shortcuts handler
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.ctrlKey) {
+      switch (e.key.toLowerCase()) {
+        case 'z':
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+          } else {
+            undo();
+          }
+          break;
+        case 'a':
+          e.preventDefault();
+          if (inputRef.current) {
+            inputRef.current.select();
+          }
+          break;
+        case 'c':
+          // Default copy behavior will work
+          break;
+        case 'v':
+          // Default paste behavior will work
+          break;
+        case 'x':
+          // Default cut behavior will work
+          break;
       }
-
-      const result = await response.json();
-      console.log('✅ DynamicQuery: Received entities:', result.entities);
-      
-      // Enhanced entity validation
-      const validEntities = (result.entities || []).filter((entity: any) => {
-        const isValid = entity.text && entity.type && entity.color && 
-                       typeof entity.startIndex === 'number' && 
-                       typeof entity.endIndex === 'number';
-        if (!isValid) {
-          console.warn('⚠️ Invalid entity detected:', entity);
-        }
-        return isValid;
-      });
-
-      setEntities(validEntities);
-      
-      // Extract table relationships
-      const tables = validEntities.map((e: EntityMatch) => e.table).filter((table: string | undefined): table is string => Boolean(table));
-      setJoinTables(Array.from(new Set(tables)));
-      
-    } catch (error) {
-      console.error('❌ DynamicQuery: Error extracting entities:', error);
-      setEntities([]);
-      setJoinTables([]);
     }
-  }, []);
+  }, [undo, redo]);
 
   // Enhanced debounced entity extraction with immediate feedback
-  useEffect(() => {
-    console.log('🔄 DynamicQuery: useEffect triggered for query:', query);
-    
-    // Immediate update for debug panel visibility
-    if (query.trim().length === 0) {
-      setEntities([]);
-      setJoinTables([]);
-    }
-    
-    const timeoutId = setTimeout(() => {
-      console.log('⏰ DynamicQuery: Debounce timeout triggered');
-      extractEntitiesFromInput(query);
-    }, 300);
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [query, extractEntitiesFromInput]);
   
-  // Handle entity hover with enhanced debugging
+  // Enhanced entity hover with comprehensive information
   const handleEntityHover = (entity: EntityMatch, event: React.MouseEvent) => {
-    console.log('🚀 HOVER EVENT TRIGGERED:', {
+    console.log('🚀 ENHANCED HOVER EVENT:', {
       text: entity.text,
       type: entity.type,
       table: entity.table,
+      actualValue: entity.actualValue,
       hoverText: entity.hoverText,
-      suggestions: entity.suggestions?.length || 0
+      suggestions: entity.suggestions?.length || 0,
+      metadata: entity.metadata
     });
     setHoveredEntity(entity);
     const rect = event.currentTarget.getBoundingClientRect();
@@ -198,7 +207,7 @@ export const DynamicQueryInterface: React.FC = () => {
     return colors[type] || '#6B7280';
   };
 
-  // Debounced dynamic query processing with SQL relationship tracking
+  // Enhanced debounced query processing with comprehensive SQL tracking
   const debouncedProcess = useCallback(
     debounce(async (queryText: string) => {
       if (!queryText.trim() || queryText.length < 2) {
@@ -214,72 +223,79 @@ export const DynamicQueryInterface: React.FC = () => {
       setIsLoading(true);
       
       try {
-        console.log('🔍 Processing dynamic query with SQL tracking:', queryText);
+        console.log('🔍 Processing enhanced query with production backend:', queryText);
         
-        const response = await fetch('http://localhost:3001/api/chat/query', {
+        const response = await fetch('http://localhost:3001/api/extract-entities', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            message: queryText,
+            text: queryText,
             userName: 'Ahmed Hassan'
           })
         });
 
-        const result: QueryResult = await response.json();
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const result: QueryResult & {
+          sqlQuery?: string;
+          filters?: any;
+          recordCount?: number;
+          primaryTable?: string;
+          joinTables?: string[];
+          filtersApplied?: number;
+          queryInfo?: any;
+          currentUser?: string;
+          currentDate?: string;
+          entities?: any[];
+          query?: { sql?: string };
+          summary?: { primaryTable?: string; joinTables?: string[] };
+        } = await response.json();
         
-        console.log('✅ Dynamic result with SQL analysis:', {
-          entities: result.responseEntities?.length || 0,
+        console.log('✅ Enhanced result with comprehensive SQL analysis:', {
+          entities: result.entities?.length || 0,
           dataRecords: result.data?.length || 0,
-          tables: result.responseEntities?.map(e => e.table).filter(Boolean) || []
+          actualSQL: result.query?.sql?.substring(0, 100) || 'None',
+          primaryTable: result.summary?.primaryTable,
+          filtersApplied: result.filtersApplied || 0
         });
         
-        setEntities(result.responseEntities || []);
+        // Set all the enhanced data from the production backend
+        setEntities(result.entities || []);
         setTableData(result.data || []);
-        setRecordCount(result.data?.length || 0);
+        setRecordCount(result.recordCount || result.data?.length || 0);
+        setTableName(result.summary?.primaryTable || 'results');
+        setJoinTables(result.summary?.joinTables || []);
+        setSqlQuery(result.query?.sql || '');
         
-        // Enhanced table relationship detection
-        if (result.responseEntities && result.responseEntities.length > 0) {
-          const entityTables = result.responseEntities.map(e => e.table).filter((table): table is string => Boolean(table));
-          setJoinTables(Array.from(new Set(entityTables)));
-          
-          const primaryTable = result.responseEntities.find(e => e.table)?.table;
-          if (primaryTable) {
-            setTableName(primaryTable);
-          } else if (result.data && result.data.length > 0) {
-            const firstRecord = result.data[0];
-            if (firstRecord.task_id) setTableName('tasks');
-            else if (firstRecord.product_id) setTableName('products');
-            else if (firstRecord.customer_id || firstRecord.sale_id) setTableName('sales');
-            else if (firstRecord.user_id) setTableName('users');
-            else if (firstRecord.stock_id) setTableName('stock');
-            else setTableName('results');
-          }
-          
-          // Generate SQL query representation
-          const sqlParts = [];
-          const tables = [...new Set(entityTables)];
-          if (tables.length > 1) {
-            sqlParts.push(`SELECT * FROM ${tables.join(' JOIN ')}`);
-            sqlParts.push(`WHERE ${result.responseEntities.map(e => 
-              e.type.includes('filter') ? `${e.table}.${e.type.replace('_filter', '')} = '${e.value}'` : 
-              `${e.table}.name LIKE '%${e.text}%'`
-            ).join(' AND ')}`);
-          } else if (tables.length === 1) {
-            sqlParts.push(`SELECT * FROM ${tables[0]}`);
-            sqlParts.push(`WHERE ${result.responseEntities.map(e => 
-              `name LIKE '%${e.text}%'`
-            ).join(' AND ')}`);
-          }
-          setSqlQuery(sqlParts.join(' '));
+        // Update entity hover text with current user and date information
+        if (result.entities) {
+          const enhancedEntities = result.entities.map(entity => {
+            if (entity.type === 'pronoun' && result.currentUser) {
+              return {
+                ...entity,
+                hoverText: `User: ${entity.text} → ${result.currentUser} (Current User)`
+              };
+            } else if (entity.type === 'temporal' && result.currentDate) {
+              return {
+                ...entity,
+                hoverText: `Date: ${entity.text} → ${entity.actualValue || entity.value} (Today: ${result.currentDate})`
+              };
+            }
+            return entity;
+          });
+          setEntities(enhancedEntities);
         }
         
       } catch (error) {
-        console.error('❌ Dynamic query error:', error);
+        console.error('❌ Enhanced query error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         setEntities([]);
         setTableData([]);
         setTableName('');
         setRecordCount(0);
-        setSqlQuery('');
+        setSqlQuery('ERROR: ' + errorMessage);
         setJoinTables([]);
       } finally {
         setIsLoading(false);
@@ -307,30 +323,75 @@ export const DynamicQueryInterface: React.FC = () => {
           result.push(query.slice(lastIndex, entity.startIndex));
         }
 
-        const displayText = (entity.type.endsWith('_filter') || entity.type === 'temporal') && entity.value && entity.value !== entity.text 
-          ? `${entity.text} (${entity.value})`
+        const displayText = (entity.type.endsWith('_filter') || entity.type === 'temporal') && entity.actualValue && entity.actualValue !== entity.text 
+          ? `${entity.text} (${entity.actualValue})`
           : entity.text;
+          
+        // Enhanced styling based on entity type
+        const entityStyle = {
+          backgroundColor: `${getEntityColor(entity.type)}20`,
+          color: getEntityColor(entity.type),
+          border: `2px solid ${getEntityColor(entity.type)}`,
+          borderRadius: '6px',
+          padding: '3px 6px',
+          margin: '0 2px',
+          fontWeight: 'bold',
+          position: 'relative' as const,
+          display: 'inline-block',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          boxShadow: `0 2px 4px ${getEntityColor(entity.type)}40`
+        };
           
         result.push(
           <span
             key={index}
             className="entity-highlight"
-            style={{
-              backgroundColor: `${getEntityColor(entity.type)}20`,
-              color: getEntityColor(entity.type),
-              border: `2px solid ${getEntityColor(entity.type)}`,
-              borderRadius: '4px',
-              padding: '2px 4px',
-              margin: '0 1px',
-              fontWeight: 'bold'
-            }}
+            style={entityStyle}
             onMouseEnter={(e) => handleEntityHover(entity, e)}
             onMouseLeave={() => setHoveredEntity(null)}
             onClick={(e) => handleEntityClick(entity, e)}
           >
+            {/* Entity type indicator */}
+            <span style={{ 
+              fontSize: '10px', 
+              marginRight: '4px',
+              opacity: 0.8
+            }}>
+              {entity.type === 'temporal' ? '📅' :
+               entity.type === 'pronoun' ? '👤' :
+               entity.type === 'numeric_filter' ? '🔢' :
+               entity.type === 'location_filter' ? '📍' :
+               entity.type === 'status_filter' ? '🔖' :
+               entity.table === 'products' ? '🛍️' :
+               entity.table === 'customers' ? '👥' :
+               entity.table === 'sales' ? '💰' :
+               entity.table === 'tasks' ? '📝' :
+               entity.table === 'stock' ? '📦' :
+               entity.table === 'users' ? '👤' : '🔍'}
+            </span>
             {displayText}
             {entity.suggestions && entity.suggestions.length > 0 && (
-              <span style={{ marginLeft: '4px', fontSize: '10px' }}>▼</span>
+              <span style={{ marginLeft: '4px', fontSize: '10px', opacity: 0.7 }}>▼</span>
+            )}
+            {/* Confidence indicator for high-confidence entities */}
+            {entity.confidence && entity.confidence >= 0.9 && (
+              <span style={{ 
+                position: 'absolute',
+                top: '-3px',
+                right: '-3px',
+                fontSize: '8px',
+                background: getEntityColor(entity.type),
+                color: 'white',
+                borderRadius: '50%',
+                width: '12px',
+                height: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                ✓
+              </span>
             )}
           </span>
         );
@@ -460,15 +521,75 @@ export const DynamicQueryInterface: React.FC = () => {
           {sqlQuery && (
             <div style={{ 
               marginTop: '8px', 
-              fontSize: '13px', 
+              fontSize: '12px', 
               fontFamily: 'monospace', 
-              color: '#059669',
-              background: '#f0fdf4',
-              padding: '8px',
-              borderRadius: '4px',
-              border: '2px solid #059669'
+              color: sqlQuery.startsWith('ERROR') ? '#DC2626' : '#059669',
+              background: sqlQuery.startsWith('ERROR') ? '#FEF2F2' : '#f0fdf4',
+              padding: '10px',
+              borderRadius: '6px',
+              border: sqlQuery.startsWith('ERROR') ? '2px solid #DC2626' : '2px solid #059669',
+              position: 'relative',
+              boxShadow: sqlQuery.startsWith('ERROR') ? '0 2px 8px rgba(220, 38, 38, 0.2)' : '0 2px 8px rgba(5, 150, 105, 0.2)',
+              maxHeight: '150px',
+              overflow: 'auto'
             }}>
-              📊 SQL: {sqlQuery}
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                marginBottom: '6px',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}>
+                <span>
+                  {sqlQuery.startsWith('ERROR') ? '❌ SQL ERROR' : '📊 SQL QUERY'}
+                </span>
+                <span style={{ 
+                  fontSize: '10px', 
+                  background: sqlQuery.startsWith('ERROR') ? '#DC2626' : '#059669',
+                  color: 'white',
+                  padding: '2px 6px',
+                  borderRadius: '4px'
+                }}>
+                  {recordCount} record{recordCount !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div style={{ 
+                background: sqlQuery.startsWith('ERROR') ? 'rgba(220, 38, 38, 0.1)' : 'rgba(5, 150, 105, 0.1)',
+                padding: '8px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                wordBreak: 'break-word',
+                lineHeight: '1.3',
+                maxHeight: '80px',
+                overflow: 'auto',
+                whiteSpace: 'pre-wrap'
+              }}>
+                {sqlQuery.length > 200 ? `${sqlQuery.substring(0, 200)}...` : sqlQuery}
+              </div>
+              
+              {/* Show filter breakdown */}
+              {!sqlQuery.startsWith('ERROR') && entities.length > 0 && (
+                <div style={{ 
+                  marginTop: '8px',
+                  fontSize: '11px',
+                  color: '#374151',
+                  borderTop: '1px solid #D1D5DB',
+                  paddingTop: '8px'
+                }}>
+                  <strong>🔍 Query Analysis:</strong>
+                  <div style={{ marginTop: '4px' }}>
+                    • Primary Table: <code style={{ background: '#F3F4F6', padding: '2px 4px', borderRadius: '2px' }}>{tableName}</code>
+                    {joinTables.length > 1 && (
+                      <>
+                        <br/>• Joined Tables: <code style={{ background: '#F3F4F6', padding: '2px 4px', borderRadius: '2px' }}>{joinTables.join(', ')}</code>
+                      </>
+                    )}
+                    <br/>• Entities Detected: {entities.length}
+                    <br/>• Filters Applied: {entities.filter(e => ['numeric_filter', 'status_filter', 'location_filter', 'temporal'].includes(e.type)).length}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           
@@ -672,9 +793,11 @@ export const DynamicQueryInterface: React.FC = () => {
           }}>
             <SearchIcon />
             <input
+              ref={inputRef}
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => handleQueryChange(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Type to search: sales of laptop, ahmed tasks, laptop stock in paris..."
               className="search-input"
               style={{
@@ -790,50 +913,105 @@ export const DynamicQueryInterface: React.FC = () => {
         {renderDynamicTable()}
       </div>
 
-      {/* Enhanced Entity Tooltip */}
+      {/* Compact Entity Tooltip */}
       {hoveredEntity && (
         <div 
           className="entity-tooltip"
           style={{
             position: 'fixed',
-            left: Math.max(10, Math.min(tooltipPosition.x - 150, window.innerWidth - 320)),
-            top: Math.max(10, tooltipPosition.y - 100),
+            left: Math.max(10, Math.min(tooltipPosition.x - 120, window.innerWidth - 260)),
+            top: Math.max(10, tooltipPosition.y - 80),
             zIndex: 10000,
-            background: 'rgba(0, 0, 0, 0.95)',
+            background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(30, 30, 30, 0.9) 100%)',
             color: 'white',
-            padding: '16px',
+            padding: '12px',
             borderRadius: '8px',
-            fontSize: '14px',
-            maxWidth: '320px',
-            boxShadow: '0 8px 25px rgba(0,0,0,0.4)',
-            border: `3px solid ${hoveredEntity.color}`
+            fontSize: '12px',
+            maxWidth: '240px',
+            minWidth: Math.max(100, hoveredEntity.text.length * 8),
+            boxShadow: `0 8px 20px rgba(0,0,0,0.4), 0 0 0 2px ${hoveredEntity.color}`,
+            backdropFilter: 'blur(8px)',
+            border: `1px solid ${hoveredEntity.color}`
           }}
         >
+          {/* Compact Header */}
           <div style={{
+            display: 'flex',
+            alignItems: 'center',
             color: hoveredEntity.color,
             fontWeight: 'bold',
             marginBottom: '8px',
-            fontSize: '16px'
+            fontSize: '13px',
+            borderBottom: `1px solid ${hoveredEntity.color}40`,
+            paddingBottom: '6px'
           }}>
-            {hoveredEntity.type.replace('_', ' ').toUpperCase()}
-            {hoveredEntity.confidence && (
-              <span style={{ marginLeft: '8px', opacity: 0.8, fontSize: '14px' }}>
-                {Math.round(hoveredEntity.confidence * 100)}%
+            <span style={{ marginRight: '6px', fontSize: '14px' }}>
+              {hoveredEntity.type === 'temporal' ? '📅' :
+               hoveredEntity.type === 'pronoun' ? '👤' :
+               hoveredEntity.type === 'numeric_filter' ? '🔢' :
+               hoveredEntity.type === 'location_filter' ? '📍' :
+               hoveredEntity.type === 'status_filter' ? '🔖' :
+               hoveredEntity.table === 'products' ? '🛍️' :
+               hoveredEntity.table === 'customers' ? '👥' :
+               hoveredEntity.table === 'sales' ? '💰' :
+               hoveredEntity.table === 'tasks' ? '📝' :
+               hoveredEntity.table === 'stock' ? '📦' :
+               hoveredEntity.table === 'shifts' ? '⏰' :
+               hoveredEntity.table === 'attendance' ? '✅' :
+               hoveredEntity.table === 'audit_trail' ? '📋' :
+               hoveredEntity.table === 'date_dimension' ? '📊' :
+               hoveredEntity.table === 'users' ? '👤' : '🔍'}
+            </span>
+            <span style={{ fontSize: '11px' }}>{hoveredEntity.type.replace('_', ' ').toUpperCase()}</span>
+          </div>
+          
+          {/* Compact Main Information */}
+          <div style={{ marginBottom: '8px' }}>
+            <div style={{ marginBottom: '4px' }}>
+              <strong style={{ color: '#E5E7EB', fontSize: '11px' }}>Text:</strong> 
+              <span style={{ marginLeft: '6px', color: hoveredEntity.color, fontWeight: 'bold', fontSize: '11px' }}>
+                "{hoveredEntity.text}"
               </span>
+            </div>
+            
+            {hoveredEntity.actualValue && hoveredEntity.actualValue !== hoveredEntity.text && (
+              <div style={{ marginBottom: '4px' }}>
+                <strong style={{ color: '#E5E7EB', fontSize: '11px' }}>→</strong> 
+                <span style={{ marginLeft: '6px', color: '#10B981', fontSize: '11px' }}>
+                  {hoveredEntity.actualValue}
+                </span>
+              </div>
+            )}
+            
+            {hoveredEntity.table && (
+              <div style={{ marginBottom: '4px' }}>
+                <strong style={{ color: '#E5E7EB', fontSize: '11px' }}>Table:</strong> 
+                <span style={{ marginLeft: '6px', color: '#3B82F6', fontSize: '11px' }}>
+                  {hoveredEntity.table}
+                </span>
+                {hoveredEntity.field && (
+                  <span style={{ color: '#9CA3AF', fontSize: '10px' }}>
+                    .{hoveredEntity.field}
+                  </span>
+                )}
+              </div>
             )}
           </div>
-          <div className="tooltip-content" style={{ marginBottom: '8px' }}>
-            <strong>Value:</strong> {hoveredEntity.hoverText || hoveredEntity.actualValue || hoveredEntity.value || hoveredEntity.text}
-          </div>
-          {hoveredEntity.table && (
-            <div style={{ marginBottom: '8px', fontSize: '12px', opacity: 0.9 }}>
-              <span style={{ marginRight: '4px' }}>🗄️</span>
-              <strong>Table:</strong> {hoveredEntity.table}
-            </div>
-          )}
-          {hoveredEntity.suggestions && hoveredEntity.suggestions.length > 0 && (
-            <div style={{ fontSize: '12px', color: '#9CA3AF', fontStyle: 'italic' }}>
-              💡 Click for {hoveredEntity.suggestions.length} suggestions
+          
+          {/* Compact Query Impact */}
+          {hoveredEntity.hoverText && (
+            <div style={{ 
+              background: 'rgba(255,255,255,0.1)',
+              padding: '6px',
+              borderRadius: '4px',
+              fontSize: '10px',
+              color: '#D1D5DB',
+              borderLeft: `2px solid ${hoveredEntity.color}`,
+              marginTop: '6px'
+            }}>
+              {hoveredEntity.hoverText.length > 80 ? 
+                `${hoveredEntity.hoverText.substring(0, 80)}...` : 
+                hoveredEntity.hoverText}
             </div>
           )}
         </div>
@@ -893,7 +1071,7 @@ export const DynamicQueryInterface: React.FC = () => {
           <div style={{
             padding: '10px 16px',
             borderTop: '2px solid #f0f0f0',
-            textAlign: 'center'
+            textAlign: 'center' as const
           }}>
             <button 
               onClick={() => setShowSuggestions(null)}

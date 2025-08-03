@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Current Fixes - Task Entity & SQL Display</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        .test-button {
+            background: #007ACC;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #005a99;
+        }
+        .result-section {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .entity-highlight {
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin: 0 2px;
+            font-weight: bold;
+        }
+        .sql-display {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+        .error {
+            color: #e53e3e;
+            background: #fed7d7;
+            padding: 10px;
+            border-radius: 6px;
+        }
+        .success {
+            color: #38a169;
+            background: #c6f6d5;
+            padding: 10px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Current Fixes - Task Entity Detection & SQL Display</h1>
+    
+    <div class="test-section">
+        <h2>🎯 Task Entity Consistency Test</h2>
+        <p>Testing if "tasks" keyword consistently shows entities without disappearing:</p>
+        
+        <input type="text" 
+               class="test-input" 
+               id="taskTestInput" 
+               placeholder="Type 'tasks' or 'my tasks' to test entity detection"
+               value="">
+        
+        <div>
+            <button class="test-button" onclick="testTaskEntity('tasks')">Test: "tasks"</button>
+            <button class="test-button" onclick="testTaskEntity('my tasks')">Test: "my tasks"</button>
+            <button class="test-button" onclick="testTaskEntity('tasks pending')">Test: "tasks pending"</button>
+            <button class="test-button" onclick="testTaskEntity('show tasks')">Test: "show tasks"</button>
+        </div>
+        
+        <div id="taskEntityResults" class="result-section">
+            <em>Enter text or click a test button to see entity detection results...</em>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 SQL Query Display Test</h2>
+        <p>Testing if actual Supabase SQL queries are displayed with JOIN statements:</p>
+        
+        <input type="text" 
+               class="test-input" 
+               id="sqlTestInput" 
+               placeholder="Enter query like 'sales by customer' to test SQL display"
+               value="">
+        
+        <div>
+            <button class="test-button" onclick="testSQLDisplay('sales by customer')">Test: "sales by customer"</button>
+            <button class="test-button" onclick="testSQLDisplay('product sales')">Test: "product sales"</button>
+            <button class="test-button" onclick="testSQLDisplay('customer orders')">Test: "customer orders"</button>
+            <button class="test-button" onclick="testSQLDisplay('stock levels')">Test: "stock levels"</button>
+        </div>
+        
+        <div id="sqlQueryResults" class="result-section">
+            <em>Enter text or click a test button to see SQL query generation...</em>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Full System Test</h2>
+        <p>Complete test including entity detection, SQL generation, and data retrieval:</p>
+        
+        <input type="text" 
+               class="test-input" 
+               id="fullTestInput" 
+               placeholder="Enter a complete query to test the entire system"
+               value="">
+        
+        <div>
+            <button class="test-button" onclick="testFullSystem('ahmed tasks')">Test: "ahmed tasks"</button>
+            <button class="test-button" onclick="testFullSystem('sales last month')">Test: "sales last month"</button>
+            <button class="test-button" onclick="testFullSystem('customer laptop orders')">Test: "customer laptop orders"</button>
+        </div>
+        
+        <div id="fullSystemResults" class="result-section">
+            <em>Enter text or click a test button to see complete system results...</em>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🖥️ Server Status</h2>
+        <button class="test-button" onclick="checkServerStatus()">Check Backend Server</button>
+        <div id="serverStatus" class="result-section">
+            <em>Click the button to check server status...</em>
+        </div>
+    </div>
+
+    <script>
+        // Test task entity detection consistency
+        async function testTaskEntity(query) {
+            const resultsDiv = document.getElementById('taskEntityResults');
+            const input = document.getElementById('taskTestInput');
+            input.value = query;
+            
+            resultsDiv.innerHTML = `<div class="loading">🔍 Testing task entity detection for: "${query}"...</div>`;
+            
+            try {
+                const response = await fetch('http://localhost:3001/api/chat/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: query,
+                        userName: 'Ahmed Hassan'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                
+                let html = `<div class="success">✅ Task entity detection completed!</div>`;
+                
+                // Show entities found
+                if (result.responseEntities && result.responseEntities.length > 0) {
+                    html += `<h4>🎯 Entities Detected (${result.responseEntities.length}):</h4>`;
+                    result.responseEntities.forEach((entity, index) => {
+                        html += `<div style="margin: 5px 0;">
+                            <span class="entity-highlight" style="background-color: ${entity.color}; color: white;">
+                                ${entity.text}
+                            </span>
+                            <small> (Type: ${entity.type}, Table: ${entity.table || 'N/A'}, Position: ${entity.startIndex}-${entity.endIndex})</small>
+                        </div>`;
+                    });
+                } else {
+                    html += `<div class="error">❌ No entities detected for "${query}"</div>`;
+                }
+                
+                // Show data results
+                if (result.data && result.data.length > 0) {
+                    html += `<h4>📊 Data Retrieved (${result.data.length} records):</h4>`;
+                    html += `<pre>${JSON.stringify(result.data.slice(0, 2), null, 2)}</pre>`;
+                } else {
+                    html += `<p>📝 No data returned</p>`;
+                }
+                
+                resultsDiv.innerHTML = html;
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        // Test SQL query display
+        async function testSQLDisplay(query) {
+            const resultsDiv = document.getElementById('sqlQueryResults');
+            const input = document.getElementById('sqlTestInput');
+            input.value = query;
+            
+            resultsDiv.innerHTML = `<div class="loading">🔍 Testing SQL query display for: "${query}"...</div>`;
+            
+            try {
+                const response = await fetch('http://localhost:3001/api/chat/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: query,
+                        userName: 'Ahmed Hassan'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                
+                let html = `<div class="success">✅ SQL query generation completed!</div>`;
+                
+                // Show SQL query
+                if (result.sqlQuery) {
+                    html += `<h4>💾 Generated SQL Query:</h4>`;
+                    html += `<div class="sql-display">${result.sqlQuery}</div>`;
+                } else {
+                    html += `<div class="error">❌ No SQL query generated</div>`;
+                }
+                
+                // Show table relationships
+                if (result.joinTables && result.joinTables.length > 0) {
+                    html += `<h4>🔗 Tables Involved:</h4>`;
+                    html += `<p>${result.joinTables.join(', ')}</p>`;
+                }
+                
+                // Show data summary
+                if (result.data && result.data.length > 0) {
+                    html += `<h4>📊 Query Results Summary:</h4>`;
+                    html += `<p>Retrieved ${result.data.length} records from table: ${result.tableName || 'unknown'}</p>`;
+                    html += `<pre>${JSON.stringify(result.data[0], null, 2)}</pre>`;
+                }
+                
+                resultsDiv.innerHTML = html;
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        // Test full system
+        async function testFullSystem(query) {
+            const resultsDiv = document.getElementById('fullSystemResults');
+            const input = document.getElementById('fullTestInput');
+            input.value = query;
+            
+            resultsDiv.innerHTML = `<div class="loading">🔍 Testing full system for: "${query}"...</div>`;
+            
+            try {
+                const response = await fetch('http://localhost:3001/api/chat/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: query,
+                        userName: 'Ahmed Hassan'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                
+                let html = `<div class="success">✅ Full system test completed!</div>`;
+                
+                // Entities
+                html += `<h4>🎯 Entities: ${result.responseEntities?.length || 0}</h4>`;
+                if (result.responseEntities?.length > 0) {
+                    result.responseEntities.forEach(entity => {
+                        html += `<span class="entity-highlight" style="background-color: ${entity.color}; color: white;">${entity.text}</span> `;
+                    });
+                }
+                
+                // SQL
+                if (result.sqlQuery) {
+                    html += `<h4>💾 SQL Query:</h4><div class="sql-display">${result.sqlQuery}</div>`;
+                }
+                
+                // Data
+                html += `<h4>📊 Data: ${result.data?.length || 0} records</h4>`;
+                if (result.data?.length > 0) {
+                    html += `<p>Table: ${result.tableName || 'unknown'}</p>`;
+                    html += `<pre>${JSON.stringify(result.data.slice(0, 3), null, 2)}</pre>`;
+                }
+                
+                resultsDiv.innerHTML = html;
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        // Check server status
+        async function checkServerStatus() {
+            const statusDiv = document.getElementById('serverStatus');
+            statusDiv.innerHTML = `<div class="loading">🔍 Checking server status...</div>`;
+            
+            try {
+                const response = await fetch('http://localhost:3001/health');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                statusDiv.innerHTML = `<div class="success">✅ Server is running!</div><pre>${JSON.stringify(result, null, 2)}</pre>`;
+                
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">❌ Server not accessible: ${error.message}<br><br>
+                <strong>To start the server, run these commands:</strong><br>
+                1. cd "c:\\Bureau\\ahmed_project_upwork\\server"<br>
+                2. node working-backend.cjs</div>`;
+            }
+        }
+        
+        // Add real-time entity detection to inputs
+        document.getElementById('taskTestInput').addEventListener('input', (e) => {
+            if (e.target.value.length > 2) {
+                testTaskEntity(e.target.value);
+            }
+        });
+        
+        document.getElementById('sqlTestInput').addEventListener('input', (e) => {
+            if (e.target.value.length > 2) {
+                testSQLDisplay(e.target.value);
+            }
+        });
+        
+        document.getElementById('fullTestInput').addEventListener('input', (e) => {
+            if (e.target.value.length > 2) {
+                testFullSystem(e.target.value);
+            }
+        });
+        
+        // Auto-check server status on page load
+        window.addEventListener('load', () => {
+            setTimeout(checkServerStatus, 1000);
+        });
+    </script>
+</body>
+</html>

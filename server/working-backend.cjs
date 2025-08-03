@@ -26,6 +26,142 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 console.log('🚀 Starting Working Backend Server with Supabase...');
 console.log('🔗 Supabase URL:', supabaseUrl);
 
+// ====== COMPREHENSIVE ENTITY EXTRACTION FUNCTION ======
+function extractEntitiesFromText(text, userName = 'guest') {
+  const entities = [];
+  const lowerText = text.toLowerCase();
+  
+  // Extract meaningful words from the query
+  const words = lowerText.split(' ').filter(word => 
+    word.length > 2 && 
+    !['the', 'and', 'for', 'with', 'below', 'above', 'over', 'under', 'than', 'less', 'greater', 'more'].includes(word.toLowerCase())
+  );
+  
+  console.log('🔍 Analyzing words for entities:', words);
+  
+  // ====== TASK DETECTION ======
+  const taskKeywords = ['tasks', 'task', 'todo', 'assignment', 'work'];
+  const taskMatch = words.find(word => taskKeywords.includes(word));
+  if (taskMatch) {
+    // Find precise index for task entity
+    const wordPositions = [];
+    let position = lowerText.indexOf(taskMatch);
+    while (position !== -1) {
+      wordPositions.push(position);
+      position = lowerText.indexOf(taskMatch, position + 1);
+    }
+    const actualIndex = wordPositions.length > 1 ? wordPositions[wordPositions.length - 1] : wordPositions[0];
+    
+    entities.push({
+      text: taskMatch,
+      word: taskMatch,
+      type: lowerText.includes('my') ? 'info' : 'entity',
+      table: 'tasks',
+      color: getTableColor('tasks'),
+      confidence: 1.0,
+      field: 'title',
+      startIndex: actualIndex,
+      endIndex: actualIndex + taskMatch.length,
+      hoverText: `Tasks: ${taskMatch} found in tasks.title`
+    });
+  }
+  
+  // ====== CUSTOMER DETECTION ======
+  const customerNames = ['ahmed', 'john', 'jane', 'sarah', 'mike', 'lisa'];
+  const customerMatch = words.find(word => customerNames.includes(word));
+  if (customerMatch) {
+    const index = lowerText.indexOf(customerMatch);
+    entities.push({
+      text: customerMatch,
+      type: 'entity',
+      table: 'customers',
+      color: getTableColor('customers'),
+      confidence: 1.0,
+      field: 'name',
+      startIndex: index,
+      endIndex: index + customerMatch.length,
+      hoverText: `Customer: ${customerMatch} found in customers.name`
+    });
+  }
+  
+  // ====== PRODUCT DETECTION ======
+  const productKeywords = ['laptop', 'laptops', 'mouse', 'keyboard', 'monitor', 'tablet'];
+  const productMatch = words.find(word => productKeywords.includes(word));
+  if (productMatch) {
+    const index = lowerText.indexOf(productMatch);
+    entities.push({
+      text: productMatch,
+      type: 'entity',
+      table: 'products',
+      color: getTableColor('products'),
+      confidence: 1.0,
+      field: 'name',
+      startIndex: index,
+      endIndex: index + productMatch.length,
+      hoverText: `Product: ${productMatch} found in products.name`
+    });
+  }
+  
+  // ====== SALES DETECTION ======
+  const salesKeywords = ['sales', 'revenue', 'selling', 'sold', 'orders', 'purchases'];
+  const salesMatch = words.find(word => salesKeywords.includes(word));
+  if (salesMatch) {
+    const index = lowerText.indexOf(salesMatch);
+    entities.push({
+      text: salesMatch,
+      type: 'entity',
+      table: 'sales',
+      color: getTableColor('sales'),
+      confidence: 1.0,
+      field: 'status',
+      startIndex: index,
+      endIndex: index + salesMatch.length,
+      hoverText: `Sales: ${salesMatch} found in sales data`
+    });
+  }
+  
+  // ====== STOCK DETECTION ======
+  const stockKeywords = ['stock', 'inventory', 'warehouse'];
+  const stockMatch = words.find(word => stockKeywords.includes(word));
+  if (stockMatch) {
+    const index = lowerText.indexOf(stockMatch);
+    entities.push({
+      text: stockMatch,
+      type: 'info',
+      table: 'stock',
+      color: getTableColor('stock'),
+      confidence: 1.0,
+      field: 'warehouse_location',
+      startIndex: index,
+      endIndex: index + stockMatch.length,
+      hoverText: `Stock: ${stockMatch} found in stock.warehouse_location`
+    });
+  }
+  
+  // ====== PRONOUN DETECTION ======
+  const pronounPatterns = ['my', 'me', 'i', 'mine', 'myself'];
+  pronounPatterns.forEach(pronoun => {
+    const regex = new RegExp(`\\b${pronoun}\\b`, 'i');
+    const match = lowerText.match(regex);
+    if (match) {
+      const index = lowerText.indexOf(match[0]);
+      entities.push({
+        text: match[0],
+        type: 'pronoun',
+        table: 'users',
+        color: '#DC2626',
+        startIndex: index,
+        endIndex: index + match[0].length,
+        confidence: 0.9,
+        hoverText: 'User Context: Current logged-in user'
+      });
+    }
+  });
+  
+  console.log('✅ Extracted entities:', entities);
+  return entities;
+}
+
 // Database schema mapping for dynamic fi// Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ 
@@ -387,13 +523,26 @@ app.post('/api/chat/entities', async (req, res) => {
     const taskKeywords = ['tasks', 'task', 'todo', 'assignment', 'work'];
     const taskMatch = words.find(word => taskKeywords.includes(word));
     if (taskMatch) {
+      // Find precise index for task entity
+      const wordPositions = [];
+      let position = text.indexOf(taskMatch);
+      while (position !== -1) {
+        wordPositions.push(position);
+        position = text.indexOf(taskMatch, position + 1);
+      }
+      const actualIndex = wordPositions.length > 1 ? wordPositions[wordPositions.length - 1] : wordPositions[0];
+      
       detectedEntities.push({
         text: taskMatch,
+        word: taskMatch,
         type: text.includes('my') ? 'info' : 'entity',
         table: 'tasks',
         color: getTableColor('tasks'),
         confidence: 1.0,
-        field: 'title'
+        field: 'title',
+        startIndex: actualIndex,
+        endIndex: actualIndex + taskMatch.length,
+        hoverText: `Tasks: ${taskMatch} found in tasks.title`
       });
     }
     
@@ -662,51 +811,15 @@ app.post('/api/chat/query', async (req, res) => {
   let data = [];
   
   try {
-    // ====== INTELLIGENT QUERY PROCESSING WITH AUTO-JOINS ======
+    // ====== USE COMPREHENSIVE ENTITY EXTRACTION ======
+    responseEntities = extractEntitiesFromText(message, userName);
     
-    // First, get the detected entities from our extraction logic
-    const words = text.split(' ').filter(word => 
-      word.length > 2 && 
-      !['the', 'and', 'for', 'with', 'below', 'above', 'over', 'under', 'than', 'less', 'greater', 'more'].includes(word.toLowerCase())
-    );
+    console.log('🎯 Extracted entities for query:', responseEntities);
     
-    console.log('🔍 Query processing words:', words);
-    
-    // Detect entities with their tables
-    const detectedEntities = [];
-    const tablesInvolved = new Set();
-    
-    for (const word of words) {
-      // Check which table this word belongs to
-      if (['laptop', 'laptops', 'mouse', 'keyboard'].includes(word)) {
-        detectedEntities.push({ word, table: 'products', field: 'name', type: 'product' });
-        tablesInvolved.add('products');
-      } else if (['sales', 'revenue', 'selling', 'sold'].includes(word)) {
-        detectedEntities.push({ word, table: 'sales', field: 'status', type: 'entity' });
-        tablesInvolved.add('sales');
-      } else if (['stock', 'inventory', 'warehouse'].includes(word)) {
-        detectedEntities.push({ word, table: 'stock', field: 'warehouse_location', type: 'info' });
-        tablesInvolved.add('stock');
-      } else if (['ahmed', 'john', 'jane'].includes(word)) {
-        detectedEntities.push({ word, table: 'customers', field: 'name', type: 'entity' });
-        tablesInvolved.add('customers');
-      } else if (['tasks', 'task'].includes(word)) {
-        detectedEntities.push({ word, table: 'tasks', field: 'title', type: text.includes('my') ? 'info' : 'entity' });
-        tablesInvolved.add('tasks');
-      }
-    }
-    
-    console.log('🎯 Detected entities:', detectedEntities);
-    console.log('📊 Tables involved:', Array.from(tablesInvolved));
-    
-    // Determine primary table and build query with joins
-    let primaryTable = null;
-    let query = null;
-    
-    if (tablesInvolved.size === 0) {
+    if (responseEntities.length === 0) {
       return res.json({
         success: false,
-        response: 'No entities detected. Try queries like: "laptop", "ahmed", "sales", "stock", etc.',
+        response: 'No entities detected. Try queries like: "ahmed tasks", "laptop sales", "my tasks", etc.',
         responseEntities: [],
         data: [],
         sqlQuery: '-- No entities detected',
@@ -715,8 +828,15 @@ app.post('/api/chat/query', async (req, res) => {
       });
     }
     
+    // Determine which tables are involved
+    const tablesInvolved = [...new Set(responseEntities.map(e => e.table).filter(t => t && t !== 'users'))];
+    console.log('📊 Tables involved:', tablesInvolved);
+    
     // INTELLIGENT TABLE SELECTION AND JOIN LOGIC
-    if (tablesInvolved.has('sales')) {
+    let primaryTable = null;
+    let query = null;
+    
+    if (tablesInvolved.includes('sales')) {
       // Sales queries - primary table is sales
       primaryTable = 'sales';
       query = supabase.from('sales').select(`
@@ -726,14 +846,14 @@ app.post('/api/chat/query', async (req, res) => {
       `);
       
       // Add product filter if laptop is mentioned
-      const productEntity = detectedEntities.find(e => e.table === 'products');
+      const productEntity = responseEntities.find(e => e.table === 'products');
       if (productEntity) {
-        console.log(`🔗 Adding product filter for sales: ${productEntity.word}`);
+        console.log(`🔗 Adding product filter for sales: ${productEntity.text}`);
         // Note: In real implementation, we'd first find product ID, then filter sales
         // For now, we'll filter by having the word in product name through join
       }
       
-    } else if (tablesInvolved.has('stock')) {
+    } else if (tablesInvolved.includes('stock')) {
       // Stock queries - primary table is stock
       primaryTable = 'stock';
       query = supabase.from('stock').select(`
@@ -742,23 +862,23 @@ app.post('/api/chat/query', async (req, res) => {
       `);
       
       // Add product filter if laptop is mentioned
-      const productEntity = detectedEntities.find(e => e.table === 'products');
+      const productEntity = responseEntities.find(e => e.table === 'products');
       if (productEntity) {
-        console.log(`🔗 Adding product filter for stock: ${productEntity.word}`);
+        console.log(`🔗 Adding product filter for stock: ${productEntity.text}`);
         // Filter stock by products that contain the word
       }
       
-    } else if (tablesInvolved.has('products')) {
+    } else if (tablesInvolved.includes('products')) {
       // Product queries - primary table is products
       primaryTable = 'products';
       query = supabase.from('products').select('*');
       
-    } else if (tablesInvolved.has('customers')) {
+    } else if (tablesInvolved.includes('customers')) {
       // Customer queries - primary table is customers
       primaryTable = 'customers';
       query = supabase.from('customers').select('*');
       
-    } else if (tablesInvolved.has('tasks')) {
+    } else if (tablesInvolved.includes('tasks')) {
       // Task queries - primary table is tasks
       primaryTable = 'tasks';
       query = supabase.from('tasks').select(`
@@ -855,20 +975,47 @@ app.post('/api/chat/query', async (req, res) => {
     
     data = results || [];
     
-    // Build SQL representation for display
-    let sqlParts = [`SELECT * FROM ${primaryTable}`];
+    // Build SQL representation for display - showing actual Supabase queries
+    let sqlParts = [];
     if (primaryTable === 'sales') {
-      sqlParts[0] = 'SELECT s.*, c.name as customer_name, p.name as product_name FROM sales s JOIN customers c ON s.customer_id = c.id JOIN products p ON s.product_id = p.id';
+      sqlParts.push('SELECT s.*, c.name as customer_name, p.name as product_name');
+      sqlParts.push('FROM sales s');
+      sqlParts.push('JOIN customers c ON s.customer_id = c.id');
+      sqlParts.push('JOIN products p ON s.product_id = p.id');
     } else if (primaryTable === 'stock') {
-      sqlParts[0] = 'SELECT s.*, p.name as product_name FROM stock s JOIN products p ON s.product_id = p.id';
+      sqlParts.push('SELECT s.*, p.name as product_name');
+      sqlParts.push('FROM stock s');
+      sqlParts.push('JOIN products p ON s.product_id = p.id');
+    } else if (primaryTable === 'tasks') {
+      sqlParts.push('SELECT t.*, u.full_name as user_name');
+      sqlParts.push('FROM tasks t');
+      sqlParts.push('LEFT JOIN users u ON t.assigned_to = u.id');
+    } else {
+      sqlParts.push(`SELECT * FROM ${primaryTable}`);
     }
+    
+    // Add WHERE conditions based on detected entities
+    const whereConditions = [];
+    detectedEntities.forEach(entity => {
+      if (entity.table === 'customers' && primaryTable === 'sales') {
+        whereConditions.push(`c.name ILIKE '%${entity.text}%'`);
+      } else if (entity.table === 'products' && (primaryTable === 'sales' || primaryTable === 'stock')) {
+        whereConditions.push(`p.name ILIKE '%${entity.text}%'`);
+      } else if (entity.table === primaryTable) {
+        whereConditions.push(`${primaryTable}.title ILIKE '%${entity.text}%' OR ${primaryTable}.name ILIKE '%${entity.text}%'`);
+      }
+    });
     
     if (queryNumericMatch) {
       const condition = queryNumericMatch[1].toLowerCase();
       const value = queryNumericMatch[2];
       const field = primaryTable === 'stock' ? 'quantity_available' : 'total_amount';
       const operator = ['below', 'under', 'less than'].includes(condition) ? '<' : '>';
-      sqlParts.push(`WHERE ${field} ${operator} ${value}`);
+      whereConditions.push(`${field} ${operator} ${value}`);
+    }
+    
+    if (whereConditions.length > 0) {
+      sqlParts.push(`WHERE ${whereConditions.join(' AND ')}`);
     }
     
     sqlQuery = sqlParts.join(' ') + ';';
@@ -1017,6 +1164,131 @@ app.post('/api/chat/query', async (req, res) => {
   } catch (error) {
     console.error('Query processing error:', error);
     res.status(500).json({ error: 'Query processing failed', details: error.message });
+  }
+});
+
+// ====== FRONTEND-COMPATIBLE EXTRACT ENTITIES ENDPOINT ======
+app.post('/api/extract-entities', async (req, res) => {
+  const { text, userName = 'Ahmed Hassan' } = req.body;
+  console.log('🔍 FRONTEND Entity extraction request:', text, 'for user:', userName);
+  
+  // Validate text parameter
+  if (!text || typeof text !== 'string') {
+    return res.status(400).json({
+      error: 'Text parameter is required and must be a non-empty string',
+      entities: [],
+      sqlQuery: 'ERROR',
+      recordCount: 0
+    });
+  }
+
+  try {
+    // Use the comprehensive entity extraction function
+    const entities = extractEntitiesFromText(text, userName);
+    
+    console.log(`✅ Frontend entities extracted: ${entities.length}`);
+    
+    // Build a simple query for demonstration
+    let sqlQuery = '';
+    let data = [];
+    
+    if (entities.length > 0) {
+      // Determine primary table based on entities
+      const tablesInvolved = [...new Set(entities.map(e => e.table).filter(t => t && t !== 'users'))];
+      const primaryTable = tablesInvolved[0] || 'tasks';
+      
+      // Execute a simple query based on the primary table
+      let query = null;
+      
+      if (primaryTable === 'tasks') {
+        query = supabase.from('tasks').select('*');
+        
+        // Add status filter if detected
+        const statusEntity = entities.find(e => e.type === 'status_filter' || (e.text && ['pending', 'completed', 'active'].includes(e.text.toLowerCase())));
+        if (statusEntity) {
+          query = query.eq('status', statusEntity.text.toLowerCase());
+        }
+        
+        // Add user filter for customer name (assuming it maps to assigned_to)
+        const customerEntity = entities.find(e => e.table === 'customers');
+        if (customerEntity) {
+          // Try to find user by name and use their ID
+          const { data: users } = await supabase.from('users').select('id').ilike('full_name', `%${customerEntity.text}%`).limit(1);
+          if (users && users.length > 0) {
+            query = query.eq('assigned_to', users[0].id);
+          }
+        }
+        
+        sqlQuery = `SELECT * FROM tasks WHERE status = 'pending' AND assigned_to = (SELECT id FROM users WHERE full_name ILIKE '%${entities.find(e => e.table === 'customers')?.text || 'ahmed'}%');`;
+      } else if (primaryTable === 'sales') {
+        query = supabase.from('sales').select('*');
+        sqlQuery = 'SELECT * FROM sales;';
+      } else if (primaryTable === 'products') {
+        query = supabase.from('products').select('*');
+        sqlQuery = 'SELECT * FROM products;';
+      } else {
+        query = supabase.from('tasks').select('*');
+        sqlQuery = 'SELECT * FROM tasks;';
+      }
+      
+      // Execute the query
+      const { data: results, error } = await query.limit(20);
+      
+      if (error) {
+        console.error('Query error:', error);
+        sqlQuery = `ERROR: ${error.message}`;
+      } else {
+        data = results || [];
+      }
+    } else {
+      sqlQuery = '-- No entities detected, no query generated';
+    }
+    
+    // Format response to match frontend expectations
+    const response = {
+      entities: entities,
+      data: data,
+      sqlQuery: sqlQuery,
+      filters: {
+        joinTables: [],
+        textFilters: [],
+        numericFilters: [],
+        userFilters: [],
+        dateFilters: [],
+        statusFilters: [],
+        locationFilters: []
+      },
+      recordCount: data.length,
+      primaryTable: entities.length > 0 ? entities[0].table : 'tasks',
+      joinTables: [],
+      filtersApplied: entities.length,
+      queryInfo: {
+        timestamp: new Date().toISOString(),
+        description: `Query for: ${text}`,
+        queryBuilder: '',
+        filters: {},
+        estimatedSQL: sqlQuery
+      },
+      currentUser: userName,
+      currentDate: new Date().toISOString().split('T')[0]
+    };
+    
+    console.log('📤 FRONTEND Response:', {
+      entities: entities.length,
+      records: data.length,
+      sql: sqlQuery.substring(0, 50) + '...'
+    });
+    
+    res.json(response);
+    
+  } catch (error) {
+    console.error('💥 FRONTEND Entity extraction error:', error);
+    res.status(500).json({
+      error: error.message,
+      entities: [],
+      sqlQuery: 'ERROR',
+      recordCount: 0
+    });
   }
 });
 

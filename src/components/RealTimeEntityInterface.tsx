@@ -57,44 +57,33 @@ export const RealTimeEntityInterface: React.FC<RealTimeEntityInterfaceProps> = (
       setIsLoading(true);
       
       try {
-        // Step 1: Extract entities
-        const entitiesResponse = await fetch('http://localhost:3001/api/chat/extract', {
+        // Extract entities and get query using comprehensive backend
+        const response = await fetch('http://localhost:3001/api/extract-entities', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            text,
-            userId: user?.id,
-            userName: user?.name
+            message: text,
+            userName: user?.name || 'Anonymous'
           })
         });
 
-        const entitiesData = await entitiesResponse.json();
-        const extractedEntities = entitiesData.entities || [];
-        setEntities(extractedEntities);
+        const result = await response.json();
+        
+        if (result.success) {
+          const extractedEntities = result.entities || [];
+          setEntities(extractedEntities);
 
-        // Step 2: If entities found, get data
-        if (extractedEntities.length > 0) {
-          const queryResponse = await fetch('http://localhost:3001/api/chat/query', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              text,
-              entities: extractedEntities,
-              userId: user?.id,
-              userName: user?.name
-            })
-          });
-
-          const queryData = await queryResponse.json();
-          
-          if (queryData.data && queryData.data.length > 0) {
-            // Determine primary table from entities
-            const primaryTable = determinePrimaryTable(extractedEntities, text);
+          // If entities found, display the SQL query and summary
+          if (extractedEntities.length > 0) {
+            setSqlQuery(result.query?.sql || '');
+            setPrimaryTable(result.summary?.primaryTable || '');
+            setQueryResults([]); // Clear previous results
             
+            // Simulate table data for display
             setTableData({
-              tableName: primaryTable,
-              data: queryData.data,
-              totalCount: queryData.data.length
+              tableName: result.summary?.primaryTable || 'unknown',
+              data: [], // In real implementation, this would come from executing the query
+              totalCount: 0
             });
           } else {
             setTableData(null);

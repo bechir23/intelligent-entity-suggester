@@ -190,7 +190,7 @@ async function buildAndExecuteAdvancedQuery(detectedEntities, filters, queryDesc
     primaryTable = 'sales';
     selectFields = `
       id, customer_id, product_id, quantity, unit_price, total_amount, 
-      sale_date, status, payment_method, shipping_method, created_at,
+      sale_date, status, notes, created_at,
       customers(id, name, email, phone, company, address),
       products(id, name, category, price, sku, description)
     `;
@@ -201,7 +201,7 @@ async function buildAndExecuteAdvancedQuery(detectedEntities, filters, queryDesc
     primaryTable = 'stock';
     selectFields = `
       id, product_id, warehouse_location, quantity_available, 
-      reorder_level, supplier_name, last_restocked, created_at,
+      reserved_quantity, reorder_level, last_restocked, created_at,
       products(id, name, category, price, sku, description)
     `;
     query = supabase.from('stock').select(selectFields);
@@ -220,8 +220,7 @@ async function buildAndExecuteAdvancedQuery(detectedEntities, filters, queryDesc
   } else if (tablesInvolved.includes('customers')) {
     primaryTable = 'customers';
     selectFields = `
-      id, name, email, phone, company, address, 
-      registration_date, status, created_at
+      id, name, email, phone, company, address, created_at, updated_at
     `;
     query = supabase.from('customers').select(selectFields);
     console.log('👥 Customer-centric query');
@@ -230,7 +229,7 @@ async function buildAndExecuteAdvancedQuery(detectedEntities, filters, queryDesc
     primaryTable = 'products';
     selectFields = `
       id, name, category, price, sku, description, 
-      brand, created_at, updated_at
+      stock_quantity, created_at, updated_at
     `;
     query = supabase.from('products').select(selectFields);
     console.log('🛍️ Product-centric query');
@@ -238,8 +237,7 @@ async function buildAndExecuteAdvancedQuery(detectedEntities, filters, queryDesc
   } else if (tablesInvolved.includes('users')) {
     primaryTable = 'users';
     selectFields = `
-      id, full_name, email, role, department, 
-      hire_date, status, created_at
+      id, full_name, email, role, created_at, updated_at
     `;
     query = supabase.from('users').select(selectFields);
     console.log('👤 User-centric query');
